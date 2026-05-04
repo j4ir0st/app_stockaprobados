@@ -19,7 +19,10 @@
   <nav class="sidebar-nav">
     <ul>
       @for (item of menuItems; track item.label) {
-        <li [routerLink]="item.route" routerLinkActive="active" [title]="item.label">
+        <li [routerLink]="item.route ? item.route : null" 
+            [routerLinkActive]="item.route ? 'active' : ''" 
+            [title]="item.label"
+            [style.cursor]="item.route ? 'pointer' : 'default'">
           <div class="icon-container">
             @if (item.isAsset) {
               <img [src]="item.icon" [alt]="item.label" class="menu-icon-asset">
@@ -40,7 +43,10 @@
   <nav class="sidebar-footer">
     <ul>
       @for (item of footerItems; track item.label) {
-        <li [routerLink]="item.route" routerLinkActive="active" [title]="item.label">
+        <li [routerLink]="item.route ? item.route : null" 
+            [routerLinkActive]="item.route ? 'active' : ''" 
+            [title]="item.label"
+            [style.cursor]="item.route ? 'pointer' : 'default'">
           <div class="icon-container">
             @if (item.isAsset) {
               <img [src]="item.icon" [alt]="item.label" class="menu-icon-asset">

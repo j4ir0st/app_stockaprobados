@@ -29,6 +29,6 @@ export class SidebarComponent {
   ];
 
   footerItems = [
-    { label: 'Almacenaje', route: '/storage', icon: 'assets/images/valores.png', isAsset: true },
+    { label: '', route: null, icon: 'assets/images/valores.png', isAsset: true },
   ];
 }

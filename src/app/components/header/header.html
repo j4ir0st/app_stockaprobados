@@ -4,17 +4,17 @@
       <div class="title-with-icon">
         <h2>
           <span class="stock-text">STOCK </span>
-          <span class="inventario-text">INVENTARIO</span>
+          <span class="inventario-text">APROBADOS</span>
         </h2>
         @if (estaRefrescando()) {
-          <i class="fas fa-sync-alt refresh-icon spinning"></i>
+        <i class="fas fa-sync-alt refresh-icon spinning"></i>
         }
       </div>
-      
+
       @if (mostrarMensajeExito()) {
-        <span class="subtitle success-message">REGISTRO DE STOCK ACTUALIZADO</span>
+      <span class="subtitle success-message">REGISTRO DE STOCK ACTUALIZADO</span>
       } @else {
-        <span class="subtitle">GESTIÓN CENTRALIZADA DE STOCK</span>
+      <span class="subtitle">GESTIÓN CENTRALIZADA DE STOCK</span>
       }
     </div>
   </div>

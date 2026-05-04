@@ -29,6 +29,7 @@ Para desplegar la aplicación en un servidor, se utiliza Docker. El proceso comp
 
 | Versión | Fecha | Descripción de Cambios |
 | :--- | :--- | :--- |
+| **1.0.0** | 2026-05-04 | Separación definitiva de la aplicación de Stock Inventario (Almacenaje). Se eliminó todo lo relativo a almacenaje en este proyecto, dejando solo el acceso a Stock Aprobado. |
 | **0.2.0** | 2026-04-30 | Implementación de refresco global desde el header con animaciones y actualización de contexto (Stock Aprobado / Inventario). |
 | **0.1.0** | 2026-04-24 | Inicialización del proyecto Angular, configuración de Docker y estructura base. |
 

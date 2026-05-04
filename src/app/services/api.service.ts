@@ -69,40 +69,7 @@ export class ApiService {
     return this.get('StockAprobado/', params);
   }
 
-  /**
-   * Obtiene el inventario de almacenaje con soporte para búsqueda unificada y límite de resultados.
-   * @param urlOrSearch URL de paginación o término de búsqueda.
-   * @param top Límite de resultados opcional (ej: 1000).
-   */
-  getStockInventario(urlOrSearch?: string, top?: number): Observable<any> {
-    if (urlOrSearch && (urlOrSearch.includes('StockInventario') || urlOrSearch.includes('/api/'))) {
-      let finalUrl = this.fixUrl(urlOrSearch);
 
-      // Si la URL es relativa, le ponemos la base
-      if (!finalUrl.startsWith('/') && !finalUrl.startsWith('http')) {
-        finalUrl = this.baseUrl + finalUrl;
-      }
-
-      // Asegurar parámetros necesarios en URL de paginación
-      if (top && !finalUrl.includes('top=')) {
-        finalUrl += (finalUrl.includes('?') ? '&' : '?') + `top=${top}`;
-      }
-      if (!finalUrl.includes('format=json')) {
-        finalUrl += (finalUrl.includes('?') ? '&' : '?') + `format=json`;
-      }
-
-      return this.http.get<any>(finalUrl);
-    }
-
-    let params = new HttpParams();
-    if (urlOrSearch) {
-      params = params.set('buscar', urlOrSearch);
-    }
-    if (top) {
-      params = params.set('top', top.toString());
-    }
-    return this.get('StockInventario/', params);
-  }
 
   /**
    * Ajusta una URL absoluta (del backend) para que use el proxy local '/api-proxy/'.
