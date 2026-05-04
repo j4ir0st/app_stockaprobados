@@ -1,0 +1,74 @@
+<header class="main-header" [class.dark-mode]="themeService.currentTheme() === 'dark'">
+  <div class="header-left">
+    <div class="title-section" (click)="refrescar()">
+      <div class="title-with-icon">
+        <h2>
+          <span class="stock-text">STOCK </span>
+          <span class="inventario-text">INVENTARIO</span>
+        </h2>
+        @if (estaRefrescando()) {
+          <i class="fas fa-sync-alt refresh-icon spinning"></i>
+        }
+      </div>
+      
+      @if (mostrarMensajeExito()) {
+        <span class="subtitle success-message">REGISTRO DE STOCK ACTUALIZADO</span>
+      } @else {
+        <span class="subtitle">GESTIÓN CENTRALIZADA DE STOCK</span>
+      }
+    </div>
+  </div>
+
+  <div class="header-right">
+    <div class="theme-toggle" (click)="themeService.toggleTheme()">
+      @if (themeService.currentTheme() === 'light') {
+      <i class="fas fa-moon"></i>
+      } @else {
+      <i class="fas fa-sun"></i>
+      }
+    </div>
+
+    @if (authService.currentUser(); as user) {
+    <div class="user-profile-container">
+      <div class="user-profile" (click)="toggleProfile()">
+        <div class="user-info">
+          <span class="user-name">{{ user.first_name }} {{ user.last_name }}</span>
+          <span class="user-area">{{ user.area }} - {{ user.puesto }}</span>
+        </div>
+        <div class="user-avatar">
+          <img [src]="user.avatar || 'assets/images/default-avatar.png'" alt="Avatar">
+        </div>
+        <div class="chevron-wrapper">
+          <i class="fas fa-chevron-down icon-chevron" [class.open]="isProfileOpen()"></i>
+        </div>
+      </div>
+
+      <!-- Tarjeta de Perfil Desplegable -->
+      @if (isProfileOpen()) {
+      <div class="profile-card">
+        <div class="profile-card-header">
+          <span class="profile-full-name">{{ user.full_name }}</span>
+          <span class="profile-detail">{{ user.area }} - {{ user.puesto }}</span>
+          <span class="profile-email">{{ user.email }}</span>
+          <span class="profile-company">{{ user.empr_id }}</span>
+        </div>
+
+        <div class="profile-card-body">
+          @if (user.is_staff) {
+          <a href="https://appsurgicorperu.com/admin" target="_blank" class="admin-link">
+            <i class="icon">⚙️</i> Administrador
+          </a>
+          }
+        </div>
+
+        <div class="profile-card-footer">
+          <button class="btn-logout" (click)="logout()">
+            <i class="icon">↪</i> Cerrar Sesión
+          </button>
+        </div>
+      </div>
+      }
+    </div>
+    }
+  </div>
+</header>

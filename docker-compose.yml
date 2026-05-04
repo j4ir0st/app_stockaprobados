@@ -1,0 +1,19 @@
+services:
+  app-stock-aprobados-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-stock-aprobados-frontend
+    ports:
+      - "8008:80"
+    restart: always
+    environment:
+      - API_URL=${API_URL}
+      - ENTORNO=${ENTORNO}
+    networks:
+      - stock-network
+
+networks:
+  stock-network:
+    name: stock-network
+    driver: bridge

@@ -1,0 +1,23 @@
+# Docker Compose para el Sistema de Vacaciones Surgicorp
+# Acceso local: http://localhost:8005/app_vacaciones/
+
+services:
+  app-vacaciones:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+      - /app/node_modules # Evita que node_modules local sobrescriba el del contenedor
+    # Puerto 8005 del host → puerto 4200 del dev server
+    ports:
+      - "8007:4200"
+    # Reiniciar automáticamente si el contenedor falla
+    restart: unless-stopped
+    environment:
+      - TZ=America/Lima
+      - API_URL=${API_URL}
+    # Cargar variables desde el archivo .env local
+    env_file: .env
+    # Nombre del contenedor para fácil identificación
+    container_name: surgicorp-stock

@@ -1,0 +1,23 @@
+# Dockerfile para Desarrollo (Hot-Reload)
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Instalar dependencias del sistema necesarias para Alpine (compatibilidad con binarios nativos)
+RUN apk add --no-cache libc6-compat gcompat
+
+# Copiar solo archivos de configuración primero para aprovechar la caché de capas
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm install --legacy-peer-deps
+
+# Copiar el resto del código
+COPY . .
+
+# Exponer el puerto de desarrollo de Angular
+EXPOSE 4200
+
+# Comando para iniciar el modo desarrollo con hot-reload
+# --host 0.0.0.0 es necesario para que sea accesible desde fuera del contenedor
+CMD ["npm", "run", "dev-docker"]

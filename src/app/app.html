@@ -1,0 +1,17 @@
+<div class="app-layout">
+  @if (!isLoginPage) {
+    <app-sidebar></app-sidebar>
+    
+    <div class="main-content" [class.collapsed]="sidebarService.isCollapsed()">
+      <app-header></app-header>
+      
+      <main>
+        <router-outlet></router-outlet>
+      </main>
+    </div>
+  } @else {
+    <div class="full-width">
+      <router-outlet></router-outlet>
+    </div>
+  }
+</div>
