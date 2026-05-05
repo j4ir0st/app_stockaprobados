@@ -1,39 +1,40 @@
 <aside class="sidebar" [class.collapsed]="sidebarService.isCollapsed()">
   <div class="sidebar-header" [class.centered]="sidebarService.isCollapsed()">
     @if (!sidebarService.isCollapsed()) {
-      <img [src]="logoUrl" alt="Surgicorp Logo" class="sidebar-logo">
-      <button class="hamburger-btn" (click)="sidebarService.toggle()">
-        <i class="fas fa-bars"></i>
-      </button>
+    <img [src]="logoUrl" alt="Surgicorp Logo" class="sidebar-logo">
+    <button class="hamburger-btn" (click)="sidebarService.toggle()">
+      <i class="fas fa-bars"></i>
+    </button>
     } @else {
-      <button class="hamburger-btn" (click)="sidebarService.toggle()">
-        <i class="fas fa-bars"></i>
-      </button>
+    <button class="hamburger-btn" (click)="sidebarService.toggle()">
+      <i class="fas fa-bars"></i>
+    </button>
     }
   </div>
 
   @if (!sidebarService.isCollapsed()) {
-    <div class="nav-section">MENÚ DE OPCIONES</div>
+  <div class="nav-section">MENÚ DE OPCIONES</div>
   }
-  
+
   <nav class="sidebar-nav">
     <ul>
       @for (item of menuItems; track item.label) {
-        <li [routerLink]="item.route ? item.route : null" 
-            [routerLinkActive]="item.route ? 'active' : ''" 
-            [title]="item.label"
-            [style.cursor]="item.route ? 'pointer' : 'default'">
-          <div class="icon-container">
-            @if (item.isAsset) {
-              <img [src]="item.icon" [alt]="item.label" class="menu-icon-asset">
-            } @else {
-              <i [class]="item.icon + ' menu-icon-fa'"></i>
-            }
-          </div>
-          @if (!sidebarService.isCollapsed()) {
-            <span>{{ item.label }}</span>
+      <li (click)="onItemClick($event, item)" 
+          [routerLink]="item.label === 'Principal' ? item.route : null"
+          [routerLinkActive]="(item.label === 'Principal' && !selectedTypeKey()) ? 'active' : ''"
+          [class.active]="selectedTypeKey() === item.typeKey" 
+          [title]="item.label" style="cursor: pointer;">
+        <div class="icon-container">
+          @if (item.isAsset) {
+          <img [src]="item.icon" [alt]="item.label" class="menu-icon-asset">
+          } @else {
+          <i [class]="item.icon + ' menu-icon-fa'"></i>
           }
-        </li>
+        </div>
+        @if (!sidebarService.isCollapsed()) {
+        <span>{{ item.label }}</span>
+        }
+      </li>
       }
     </ul>
   </nav>
@@ -43,22 +44,53 @@
   <nav class="sidebar-footer">
     <ul>
       @for (item of footerItems; track item.label) {
-        <li [routerLink]="item.route ? item.route : null" 
-            [routerLinkActive]="item.route ? 'active' : ''" 
-            [title]="item.label"
-            [style.cursor]="item.route ? 'pointer' : 'default'">
-          <div class="icon-container">
-            @if (item.isAsset) {
-              <img [src]="item.icon" [alt]="item.label" class="menu-icon-asset">
-            } @else {
-              <i [class]="item.icon + ' menu-icon-fa'"></i>
-            }
-          </div>
-          @if (!sidebarService.isCollapsed()) {
-            <span>{{ item.label }}</span>
+      <li [routerLink]="item.route ? item.route : null" [routerLinkActive]="item.route ? 'active' : ''"
+        [title]="item.label" [style.cursor]="item.route ? 'pointer' : 'default'">
+        <div class="icon-container">
+          @if (item.isAsset) {
+          <img [src]="item.icon" [alt]="item.label" class="menu-icon-asset">
+          } @else {
+          <i [class]="item.icon + ' menu-icon-fa'"></i>
           }
-        </li>
+        </div>
+        @if (!sidebarService.isCollapsed()) {
+        <span>{{ item.label }}</span>
+        }
+      </li>
       }
     </ul>
   </nav>
 </aside>
+
+<!-- Lista de Familias Flotante -->
+@if (selectedTypeKey() && filteredFamilies().length > 0) {
+<div class="family-flyout" [class.collapsed]="sidebarService.isCollapsed()">
+  <button class="close-flyout-btn" (click)="closeFlyout()" title="Cerrar lista">
+    <i class="fas fa-times"></i>
+  </button>
+  
+  <div class="family-items">
+    @for (family of filteredFamilies(); track family.url) {
+    <div class="family-item" 
+         (mouseenter)="hoveredFamilyUrl.set(family.url)" 
+         (mouseleave)="hoveredFamilyUrl.set(null)">
+      <span class="family-name" (click)="onFamilyHeaderClick($event, family)">
+        {{ family.nombre }}
+      </span>
+      
+      @if (hoveredFamilyUrl() === family.url && hoveredCategories().length > 0) {
+        <div class="category-container">
+          @for (cat of hoveredCategories(); track cat.url) {
+            <div class="category-name" 
+                 [class.selected]="selectedCategoryUrl() === cat.url"
+                 (click)="onCategoryClick(cat)">
+              {{ cat.nombre }}
+            </div>
+          }
+        </div>
+      }
+    </div>
+    }
+  </div>
+</div>
+}

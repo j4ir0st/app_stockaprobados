@@ -54,6 +54,7 @@
       <table class="stock-table">
         <thead>
           <tr>
+            <th>CATEGORÍA</th>
             <th>CÓDIGO</th>
             <th>DESCRIPCIÓN</th>
             <th>DISPONIBLE</th>
@@ -70,8 +71,10 @@
           @for (item of stockItems(); track item.prod_id?.codigo) {
           <tr>
             <td>
-              <div class="prod-code">{{ item.prod_id?.tipo ? item.prod_id.tipo.trim() + ':' : '' }}{{
-                item.prod_id?.codigo }}</div>
+              <div class="prod-cat">{{ item.prod_id?.cat_id?.nombre || '-' }}</div>
+            </td>
+            <td>
+              <div class="prod-code">{{ item.prod_id?.codigo }}</div>
             </td>
             <td>
               <div class="prod-desc">{{ item.prod_id?.descripcion }}</div>
@@ -93,7 +96,7 @@
           }
           @if (stockItems().length === 0 && !loading()) {
           <tr>
-            <td colspan="10" class="no-results">
+            <td colspan="11" class="no-results">
               No se encontraron productos que coincidan con la búsqueda.
             </td>
           </tr>

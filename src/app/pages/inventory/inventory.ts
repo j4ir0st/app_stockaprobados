@@ -1,4 +1,5 @@
 import { Component, signal, inject, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
@@ -22,6 +23,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   private apiService = inject(ApiService);
   public themeService = inject(ThemeService);
   private refreshService = inject(RefreshService);
+  private route = inject(ActivatedRoute);
 
   private suscripcionRefresco?: Subscription;
 
@@ -47,6 +49,17 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.suscripcionRefresco = this.refreshService.refresco$.subscribe(() => {
       console.log('Refrescando Stock Aprobado desde el Header...');
       this.cargarStock();
+    });
+
+    // Escuchar cambios en los parámetros de consulta (para filtrado por categoría o familia)
+    this.route.queryParams.subscribe(params => {
+      if (params['prod_id__cat_id__nombre']) {
+        console.log('Filtrando por categoría:', params['prod_id__cat_id__nombre']);
+        this.cargarStock(`&prod_id__cat_id__nombre=${encodeURIComponent(params['prod_id__cat_id__nombre'])}`);
+      } else if (params['prod_id__cat_id__familia_id__nombre']) {
+        console.log('Filtrando por familia:', params['prod_id__cat_id__familia_id__nombre']);
+        this.cargarStock(`&prod_id__cat_id__familia_id__nombre=${encodeURIComponent(params['prod_id__cat_id__familia_id__nombre'])}`);
+      }
     });
   }
 
@@ -84,12 +97,50 @@ export class InventoryComponent implements OnInit, OnDestroy {
     console.log('Procesando resultados:', data);
     const results = data.results || (Array.isArray(data) ? data : []);
 
-    this.stockItems.set(results);
+    // Agregación de items por código (sin prefijo tipo: )
+    const aggregated = new Map<string, any>();
+
+    results.forEach((item: any) => {
+      // Extraer código sin prefijo (ej: "MER:XF-DMDF1" -> "XF-DMDF1")
+      let fullCode = item.prod_id?.codigo || '';
+      let cleanCode = fullCode.includes(':') ? fullCode.split(':')[1].trim() : fullCode.trim();
+      
+      const key = cleanCode || fullCode;
+
+      if (aggregated.has(key)) {
+        const existing = aggregated.get(key);
+        // Sumar cantidades en paralelo
+        existing.disponible = (existing.disponible || 0) + (item.disponible || 0);
+        existing.importacion = (existing.importacion || 0) + (item.importacion || 0);
+        existing.acondicionado = (existing.acondicionado || 0) + (item.acondicionado || 0);
+        existing.reesterilizado = (existing.reesterilizado || 0) + (item.reesterilizado || 0);
+        existing.observados = (existing.observados || 0) + (item.observados || 0);
+        existing.consignacion = (existing.consignacion || 0) + (item.consignacion || 0);
+        existing.venta_sujeta = (existing.venta_sujeta || 0) + (item.venta_sujeta || 0);
+        existing.stock_total = (existing.stock_total || 0) + (item.stock_total || item.stock || 0);
+      } else {
+        // Clonar y limpiar el código
+        const newItem = { ...item };
+        if (newItem.prod_id) {
+          newItem.prod_id = { ...newItem.prod_id, codigo: cleanCode };
+        }
+        aggregated.set(key, newItem);
+      }
+    });
+
+    const finalResults = Array.from(aggregated.values());
+
+    this.stockItems.set(finalResults);
     this.nextUrl.set(data.next || null);
     this.prevUrl.set(data.previous || null);
-    this.totalCount.set(data.count || results.length);
+    
+    // Recalcular totalCount restando los duplicados eliminados en esta página
+    const reduction = results.length - finalResults.length;
+    const currentTotal = data.count || results.length;
+    this.totalCount.set(currentTotal - reduction);
+
     this.loading.set(false);
-    console.log('Carga finalizada. Items:', results.length, 'Total:', data.count);
+    console.log('Carga finalizada. Items originales:', results.length, 'Agregados:', finalResults.length);
   }
 
   private manejarError(err: any): void {
@@ -174,23 +225,49 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
       this.exportProgress.set(100);
 
-      // Formatear los datos para el Excel
-      const dataToExport = allData.map(item => ({
-        'TIPO': item.prod_id?.tipo || '',
-        'CÓDIGO': item.prod_id?.codigo || '',
-        'DESCRIPCIÓN': item.prod_id?.descripcion || '',
-        'DISPONIBLE': item.disponible || 0,
-        'IMPORTACION': item.importacion || 0,
-        'ACONDICIONADO': item.acondicionado || 0,
-        'REESTERILIZADO': item.reesterilizado || 0,
-        'OBSERVADOS': item.observados || 0,
-        'CONSIGNACION': item.consignacion || 0,
-        'VENTA SUJETA': item.venta_sujeta || 0,
-        'STOCK TOTAL': item.stock_total || item.stock || 0
-      }));
+      // Formatear los datos para el Excel (Usando los datos agregados si están cargados)
+      // Nota: Si es exportación total, deberíamos agregar después de cargar todo
+      const dataToExport = allData.map(item => {
+        let fullCode = item.prod_id?.codigo || '';
+        let cleanCode = fullCode.includes(':') ? fullCode.split(':')[1].trim() : fullCode.trim();
+        return {
+          'CATEGORÍA': item.prod_id?.cat_id?.nombre || '',
+          'CÓDIGO': cleanCode,
+          'DESCRIPCIÓN': item.prod_id?.descripcion || '',
+          'DISPONIBLE': item.disponible || 0,
+          'IMPORTACION': item.importacion || 0,
+          'ACONDICIONADO': item.acondicionado || 0,
+          'REESTERILIZADO': item.reesterilizado || 0,
+          'OBSERVADOS': item.observados || 0,
+          'CONSIGNACION': item.consignacion || 0,
+          'VENTA SUJETA': item.venta_sujeta || 0,
+          'STOCK TOTAL': item.stock_total || item.stock || 0
+        };
+      });
+
+      // Si hay duplicados en el volcado total, agregarlos también
+      const finalExcelData: any[] = [];
+      const excelMap = new Map<string, any>();
+      dataToExport.forEach(item => {
+        const key = item['CÓDIGO'];
+        if (excelMap.has(key)) {
+          const ex = excelMap.get(key);
+          ex['DISPONIBLE'] += item['DISPONIBLE'];
+          ex['IMPORTACION'] += item['IMPORTACION'];
+          ex['ACONDICIONADO'] += item['ACONDICIONADO'];
+          ex['REESTERILIZADO'] += item['REESTERILIZADO'];
+          ex['OBSERVADOS'] += item['OBSERVADOS'];
+          ex['CONSIGNACION'] += item['CONSIGNACION'];
+          ex['VENTA SUJETA'] += item['VENTA SUJETA'];
+          ex['STOCK TOTAL'] += item['STOCK TOTAL'];
+        } else {
+          excelMap.set(key, { ...item });
+        }
+      });
+      const finalData = Array.from(excelMap.values());
 
       // Crear el libro de Excel
-      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const worksheet = XLSX.utils.json_to_sheet(finalData);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock Inventario');
 
@@ -198,7 +275,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       const fileName = `Stock_Inventario_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(workbook, fileName);
 
-      console.log('Exportación completada con', allData.length, 'registros.');
+      console.log('Exportación completada con', finalData.length, 'registros agregados.');
     } catch (error) {
       console.error('Error exportando a Excel:', error);
       alert('Error al generar el archivo Excel');

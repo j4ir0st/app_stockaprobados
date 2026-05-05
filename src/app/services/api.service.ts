@@ -40,15 +40,21 @@ export class ApiService {
    * @param top Límite de resultados opcional (ej: 1000).
    */
   getStockAprobado(urlOrSearch?: string, top?: number): Observable<any> {
-    if (urlOrSearch && (urlOrSearch.includes('StockAprobado') || urlOrSearch.includes('/api/'))) {
+    // Si es una URL completa o parcial que ya incluye el endpoint o comienza con filtros directos
+    if (urlOrSearch && (urlOrSearch.includes('StockAprobado') || urlOrSearch.includes('/api/') || urlOrSearch.startsWith('&'))) {
       let finalUrl = this.fixUrl(urlOrSearch);
 
-      // Si la URL es relativa (ej: "StockAprobado/?page=2"), le ponemos la base
+      // Si solo son filtros (comienza con &), anteponemos el endpoint
+      if (finalUrl.startsWith('&')) {
+        finalUrl = 'StockAprobado/?' + finalUrl.substring(1);
+      }
+
+      // Si la URL es relativa, le ponemos la base
       if (!finalUrl.startsWith('/') && !finalUrl.startsWith('http')) {
         finalUrl = this.baseUrl + finalUrl;
       }
 
-      // Asegurar parámetros necesarios en URL de paginación
+      // Asegurar parámetros necesarios
       if (top && !finalUrl.includes('top=')) {
         finalUrl += (finalUrl.includes('?') ? '&' : '?') + `top=${top}`;
       }

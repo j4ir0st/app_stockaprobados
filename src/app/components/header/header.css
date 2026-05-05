@@ -1,7 +1,7 @@
 .main-header {
     height: 70px;
-    background: #e3f2fd;
-    /* Azul pálido para modo claro */
+    background: color-mix(in srgb, var(--primary-blue), white 90%);
+    /* Fondo dinámico claro basado en el color primario */
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -9,14 +9,14 @@
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     z-index: 100;
     transition: all 0.3s ease;
-    border-bottom: 1px solid #d0e4ff;
+    border-bottom: 1px solid color-mix(in srgb, var(--primary-blue), white 80%);
 }
 
 .main-header.dark-mode {
-    background: #417690;
-    /* Azul petróleo original para modo oscuro */
+    background: var(--secondary-color);
+    /* Azul petróleo dinámico para modo oscuro */
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    border-bottom: 1px solid #417690;
+    border-bottom: 1px solid var(--secondary-color);
 }
 
 .theme-toggle {
@@ -28,9 +28,9 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: #bbdefb;
-    /* Fondo armonizado para modo claro */
-    color: #007bff;
+    background: color-mix(in srgb, var(--primary-blue), transparent 85%);
+    /* Fondo armonizado dinámico */
+    color: var(--primary-blue);
     transition: all 0.2s;
     font-size: 1.2rem;
 }
@@ -41,7 +41,7 @@
 }
 
 .theme-toggle:hover {
-    background: var(--primary-soft);
+    background: color-mix(in srgb, var(--primary-blue), transparent 70%);
     transform: scale(1.1);
 }
 
@@ -89,14 +89,14 @@
 }
 
 .stock-text {
-    color: #007bff;
-    /* Azul del sidebar */
+    color: var(--primary-blue);
+    /* Color primario dinámico */
     transition: color 0.3s ease;
 }
 
 .inventario-text {
-    color: #417690;
-    /* Azul del header original */
+    color: var(--secondary-color);
+    /* Azul del header original dinámico */
     transition: color 0.3s ease;
 }
 
@@ -127,7 +127,7 @@
 /* Icono de refresco y animación */
 .refresh-icon {
     font-size: 1rem;
-    color: #007bff;
+    color: var(--primary-blue);
     animation: rotate 1s linear infinite;
 }
 
@@ -163,8 +163,8 @@
     border-radius: 32px;
     cursor: pointer;
     transition: all 0.2s ease;
-    background: #bbdefb;
-    /* Fondo armonizado para modo claro */
+    background: color-mix(in srgb, var(--primary-blue), transparent 85%);
+    /* Fondo armonizado dinámico */
 }
 
 .main-header.dark-mode .user-profile {
@@ -172,7 +172,7 @@
 }
 
 .user-profile:hover {
-    background: var(--primary-soft);
+    background: color-mix(in srgb, var(--primary-blue), transparent 70%);
 }
 
 .main-header.dark-mode .user-profile:hover {
@@ -207,7 +207,7 @@
     border-radius: 50%;
     overflow: hidden;
     border: 2px solid #ffffff;
-    box-shadow: 0 0 0 2px #3b82f6;
+    box-shadow: 0 0 0 2px var(--primary-blue);
 }
 
 .user-avatar img {
@@ -278,7 +278,7 @@
 
 .profile-email {
     font-size: 0.75rem;
-    color: #3b82f6;
+    color: var(--primary-blue);
     margin-bottom: 4px;
 }
 
@@ -290,7 +290,7 @@
 
 .profile-company {
     font-size: 0.75rem;
-    color: #3b82f6;
+    color: var(--primary-blue);
     font-weight: 600;
     margin-top: 0px;
 }
@@ -334,4 +334,154 @@
 
 .btn-logout:hover {
     background: #fecaca;
+}
+
+/* Selector de Colores */
+.color-picker-container {
+    position: relative;
+    margin-right: 0.5rem;
+}
+
+.color-toggle {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--primary-blue), transparent 85%);
+    color: var(--primary-blue);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1.1rem;
+}
+
+.main-header.dark-mode .color-toggle {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.color-toggle:hover {
+    background: color-mix(in srgb, var(--primary-blue), transparent 70%);
+    transform: scale(1.1);
+}
+
+.color-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 200px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 1rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    animation: slideIn 0.2s ease-out;
+}
+
+.main-header.dark-mode .color-menu {
+    background: rgba(30, 41, 59, 0.95);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.btn-close-picker {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    border-radius: 4px;
+}
+
+.main-header.dark-mode .btn-close-picker {
+    color: #94a3b8;
+}
+
+.btn-close-picker:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #ef4444;
+}
+
+.main-header.dark-mode .btn-close-picker:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f87171;
+}
+
+.color-option {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.color-option label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+}
+
+.main-header.dark-mode .color-option label {
+    color: #94a3b8;
+}
+
+.color-option input[type="color"] {
+    width: 100%;
+    height: 35px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: none;
+}
+
+.color-option input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.color-option input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-reset-colors {
+    margin-top: 0.4rem;
+    padding: 0.6rem;
+    border: 1px solid #e2e8f0;
+    background: white;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.main-header.dark-mode .btn-reset-colors {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+}
+
+.btn-reset-colors:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #1e293b;
+}
+
+.main-header.dark-mode .btn-reset-colors:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
 }
