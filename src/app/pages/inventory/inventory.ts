@@ -43,8 +43,6 @@ export class InventoryComponent implements OnInit, OnDestroy {
   exportProgress = signal(0);
 
   ngOnInit(): void {
-    this.cargarStock();
-
     // Escuchar eventos de refresco desde el header
     this.suscripcionRefresco = this.refreshService.refresco$.subscribe(() => {
       console.log('Refrescando Stock Aprobado desde el Header...');
@@ -53,12 +51,19 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
     // Escuchar cambios en los parámetros de consulta (para filtrado por categoría o familia)
     this.route.queryParams.subscribe(params => {
-      if (params['prod_id__cat_id__nombre']) {
-        console.log('Filtrando por categoría:', params['prod_id__cat_id__nombre']);
-        this.cargarStock(`&prod_id__cat_id__nombre=${encodeURIComponent(params['prod_id__cat_id__nombre'])}`);
-      } else if (params['prod_id__cat_id__familia_id__nombre']) {
-        console.log('Filtrando por familia:', params['prod_id__cat_id__familia_id__nombre']);
-        this.cargarStock(`&prod_id__cat_id__familia_id__nombre=${encodeURIComponent(params['prod_id__cat_id__familia_id__nombre'])}`);
+      const categoria = params['prod_id__cat_id__nombre'];
+      const familia = params['prod_id__cat_id__familia_id__nombre'];
+
+      if (categoria) {
+        console.log('Filtrando por categoría:', categoria);
+        this.cargarStock(`&prod_id__cat_id__nombre=${encodeURIComponent(categoria)}`);
+      } else if (familia) {
+        console.log('Filtrando por familia:', familia);
+        this.cargarStock(`&prod_id__cat_id__familia_id__nombre=${encodeURIComponent(familia)}`);
+      } else {
+        console.log('Cargando Stock General (sin filtros en URL)...');
+        this.searchTerm.set(''); // Limpiar buscador al volver a Stock General
+        this.cargarStock();
       }
     });
   }

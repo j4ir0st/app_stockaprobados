@@ -20,9 +20,7 @@
     <ul>
       @for (item of menuItems; track item.label) {
       <li (click)="onItemClick($event, item)" 
-          [routerLink]="item.label === 'Principal' ? item.route : null"
-          [routerLinkActive]="(item.label === 'Principal' && !selectedTypeKey()) ? 'active' : ''"
-          [class.active]="selectedTypeKey() === item.typeKey" 
+          [class.active]="(item.label === 'Stock General' && isStockGeneralActive()) || (item.typeKey && (activeTypeKey() === item.typeKey || selectedTypeKey() === item.typeKey))" 
           [title]="item.label" style="cursor: pointer;">
         <div class="icon-container">
           @if (item.isAsset) {

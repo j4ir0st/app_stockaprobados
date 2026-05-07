@@ -366,6 +366,10 @@
     transform: scale(1.1);
 }
 
+.main-header.dark-mode .color-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
 .color-menu {
     position: absolute;
     top: calc(100% + 10px);
