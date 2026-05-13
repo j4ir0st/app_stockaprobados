@@ -48,11 +48,11 @@ export class SidebarComponent {
         // Buscar a qué familia pertenece el filtro aplicado
         const familiaNombre = params['prod_id__cat_id__familia_id__nombre'];
         const categoriaNombre = params['prod_id__cat_id__nombre'];
+        const tipoCategoria = params['prod_id__cat_id__tipo'];
         
-        if (familiaNombre || categoriaNombre) {
+        if (familiaNombre || categoriaNombre || tipoCategoria) {
           // Necesitamos saber a qué typeKey corresponde.
-          // Como la información de la familia completa está en FamilyService, podemos buscarla.
-          this.updateActiveTypeKey(familiaNombre, categoriaNombre);
+          this.updateActiveTypeKey(familiaNombre, categoriaNombre, tipoCategoria);
         } else {
           this.activeTypeKey.set(null);
         }
@@ -62,13 +62,19 @@ export class SidebarComponent {
     });
   }
 
-  private updateActiveTypeKey(familiaNombre?: string, categoriaNombre?: string) {
+  private updateActiveTypeKey(familiaNombre?: string, categoriaNombre?: string, tipoCategoria?: string) {
     let targetFamilia: any = null;
     
     if (familiaNombre) {
       targetFamilia = this.familyService.families().find(f => f.nombre === familiaNombre);
     } else if (categoriaNombre) {
       const cat = this.familyService.categories().find(c => c.nombre === categoriaNombre);
+      if (cat && cat.familia_id) {
+        const famUrl = typeof cat.familia_id === 'string' ? cat.familia_id : cat.familia_id.url;
+        targetFamilia = this.familyService.families().find(f => f.url === famUrl);
+      }
+    } else if (tipoCategoria) {
+      const cat = this.familyService.categories().find(c => c.tipos && c.tipos.includes(tipoCategoria));
       if (cat && cat.familia_id) {
         const famUrl = typeof cat.familia_id === 'string' ? cat.familia_id : cat.familia_id.url;
         targetFamilia = this.familyService.families().find(f => f.url === famUrl);
@@ -95,12 +101,38 @@ export class SidebarComponent {
     const normalize = (u: string) => u ? u.replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
     const targetUrl = normalize(url);
 
-    return this.familyService.categories().filter(c => {
+    let cats = this.familyService.categories().filter(c => {
       if (!c.familia_id) return false;
       // Manejar tanto si familia_id es una URL (string) como si es un objeto
       const famUrl = typeof c.familia_id === 'string' ? c.familia_id : c.familia_id.url;
       return normalize(famUrl) === targetUrl;
     });
+
+    // Caso especial para Traumatología: Mostrar TIPOS de categoría ordenados y sin duplicados
+    if (this.selectedTypeKey() === 'TR') {
+      // 1. Ordenar por ID de menor a mayor
+      cats.sort((a, b) => a.id - b.id);
+
+      // 2. Hacer distinct aplanando la lista de 'tipos'
+      const uniqueTypes = new Map<string, any>();
+      cats.forEach(c => {
+        if (c.tipos && Array.isArray(c.tipos)) {
+          c.tipos.forEach(t => {
+            if (!uniqueTypes.has(t)) {
+              uniqueTypes.set(t, {
+                ...c,
+                nombre: t, // El nombre a mostrar es el tipo individual
+                url: `type-${t}`, // URL ficticia para selección
+                activeTipo: t // Campo auxiliar para saber qué tipo se clickeó
+              });
+            }
+          });
+        }
+      });
+      return Array.from(uniqueTypes.values());
+    }
+
+    return cats;
   });
 
   /**
@@ -140,8 +172,7 @@ export class SidebarComponent {
       this.selectedTypeKey.set(null);
     } else {
       this.selectedTypeKey.set(item.typeKey);
-      // Al entrar en una sección, nos aseguramos de estar en la base pero sin el estilo 'active' de Stock General
-      this.router.navigate(['/inventory']);
+      // Se omite la carga de datos al hacer click en los iconos de categorías, solo se abre el menú.
     }
   }
 
@@ -150,6 +181,12 @@ export class SidebarComponent {
    */
   onFamilyHeaderClick(event: Event, family: any) {
     event.stopPropagation();
+    
+    // Funcionalidad exclusiva para Traumatología: No se permite filtrar por familia directamente
+    if (this.selectedTypeKey() === 'TR') {
+      return;
+    }
+
     this.selectedCategoryUrl.set(null); // Reset categoría si se filtra por familia
     this.router.navigate(['/inventory'], {
       queryParams: { prod_id__cat_id__familia_id__nombre: family.nombre }
@@ -171,9 +208,17 @@ export class SidebarComponent {
    */
   onCategoryClick(category: Category) {
     this.selectedCategoryUrl.set(category.url);
-    this.router.navigate(['/inventory'], {
-      queryParams: { prod_id__cat_id__nombre: category.nombre }
-    });
+    
+    // Para Traumatología (TR) filtramos por tipo de categoría en lugar de nombre
+    if (this.selectedTypeKey() === 'TR' && (category as any).activeTipo) {
+      this.router.navigate(['/inventory'], {
+        queryParams: { prod_id__cat_id__tipo: (category as any).activeTipo }
+      });
+    } else {
+      this.router.navigate(['/inventory'], {
+        queryParams: { prod_id__cat_id__nombre: category.nombre }
+      });
+    }
     this.closeFlyout();
   }
 

@@ -265,6 +265,15 @@ nav span {
     opacity: 0.8;
 }
 
+.family-name.non-clickable {
+    cursor: default;
+}
+
+.family-name.non-clickable:hover {
+    text-decoration: none;
+    opacity: 1;
+}
+
 .category-container {
     margin-top: 8px;
     padding-top: 8px;

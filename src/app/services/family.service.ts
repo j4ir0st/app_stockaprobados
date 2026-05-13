@@ -32,7 +32,7 @@ export class FamilyService {
     const cachedCategories = this.getCache<Category>(this.CACHE_KEY_CATEGORIES);
 
     if (cachedFamilies) {
-      this.families.set(cachedFamilies);
+      this.families.set(cachedFamilies.sort((a, b) => a.id - b.id));
     } else {
       await this.refreshFamilies();
     }
@@ -98,6 +98,9 @@ export class FamilyService {
         
         if (!response.results) break;
       }
+
+      // Ordenar familias por id de menor a mayor
+      allFamilies.sort((a, b) => a.id - b.id);
 
       this.families.set(allFamilies);
       localStorage.setItem(this.CACHE_KEY_FAMILIES, JSON.stringify({

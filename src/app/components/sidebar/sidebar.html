@@ -72,7 +72,9 @@
     <div class="family-item" 
          (mouseenter)="hoveredFamilyUrl.set(family.url)" 
          (mouseleave)="hoveredFamilyUrl.set(null)">
-      <span class="family-name" (click)="onFamilyHeaderClick($event, family)">
+      <span class="family-name" 
+            [class.non-clickable]="selectedTypeKey() === 'TR'"
+            (click)="onFamilyHeaderClick($event, family)">
         {{ family.nombre }}
       </span>
       

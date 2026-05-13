@@ -3,7 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
-import { forkJoin, of } from 'rxjs';
+import { forkJoin, of, firstValueFrom } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ConfigService } from '../../services/config.service';
 import { ApiService } from '../../services/api.service';
@@ -42,6 +42,12 @@ export class InventoryComponent implements OnInit, OnDestroy {
   loadingExport = signal(false);
   exportProgress = signal(0);
 
+  // Título para filtros específicos (Traumatología)
+  tipoCategoriaTitle = signal<string | null>(null);
+
+  // Almacena la query de filtros activos (categoría, familia, tipo) para exportación y búsqueda
+  currentFiltersQuery = signal<string>('');
+
   ngOnInit(): void {
     // Escuchar eventos de refresco desde el header
     this.suscripcionRefresco = this.refreshService.refresco$.subscribe(() => {
@@ -52,25 +58,46 @@ export class InventoryComponent implements OnInit, OnDestroy {
     // Escuchar cambios en los parámetros de consulta (para filtrado por categoría o familia)
     this.route.queryParams.subscribe(params => {
       const categoria = params['prod_id__cat_id__nombre'];
+      const tipoCategoria = params['prod_id__cat_id__tipo'];
       const familia = params['prod_id__cat_id__familia_id__nombre'];
 
-      if (categoria) {
+      let filterQuery = '';
+      if (tipoCategoria) {
+        console.log('Filtrando por tipo de categoría:', tipoCategoria);
+        this.tipoCategoriaTitle.set(tipoCategoria);
+        filterQuery = `&prod_id__cat_id__tipo=${encodeURIComponent(tipoCategoria)}`;
+      } else if (categoria) {
         console.log('Filtrando por categoría:', categoria);
-        this.cargarStock(`&prod_id__cat_id__nombre=${encodeURIComponent(categoria)}`);
+        this.tipoCategoriaTitle.set(null);
+        filterQuery = `&prod_id__cat_id__nombre=${encodeURIComponent(categoria)}`;
       } else if (familia) {
         console.log('Filtrando por familia:', familia);
-        this.cargarStock(`&prod_id__cat_id__familia_id__nombre=${encodeURIComponent(familia)}`);
+        this.tipoCategoriaTitle.set(null);
+        filterQuery = `&prod_id__cat_id__familia_id__nombre=${encodeURIComponent(familia)}`;
       } else {
         console.log('Cargando Stock General (sin filtros en URL)...');
+        this.tipoCategoriaTitle.set(null);
         this.searchTerm.set(''); // Limpiar buscador al volver a Stock General
-        this.cargarStock();
+        filterQuery = '';
       }
+
+      this.currentFiltersQuery.set(filterQuery);
+      this.cargarStock();
     });
   }
 
   ngOnDestroy(): void {
     // Limpiar suscripción para evitar fugas de memoria
     this.suscripcionRefresco?.unsubscribe();
+  }
+
+  /**
+   * Obtiene la query combinada de búsqueda y filtros activos.
+   */
+  private getCombinedQuery(): string {
+    const term = this.searchTerm();
+    const filters = this.currentFiltersQuery();
+    return (term ? `&buscar=${encodeURIComponent(term)}` : '') + filters;
   }
 
   /**
@@ -81,7 +108,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.stockItems.set([]);
 
-    const search = urlOrSearch || this.searchTerm();
+    const query = urlOrSearch || this.getCombinedQuery();
 
     // Extraer página si es una URL de paginación
     if (urlOrSearch && urlOrSearch.includes('page=')) {
@@ -92,7 +119,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       this.paginaActual.set(1);
     }
 
-    this.apiService.getStockAprobado(search).subscribe({
+    this.apiService.getStockAprobado(query).subscribe({
       next: (data) => this.procesarResultados(data),
       error: (err) => this.manejarError(err)
     });
@@ -181,14 +208,14 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
     this.loadingExport.set(true);
     this.exportProgress.set(0);
-    console.log('Iniciando exportación a Excel paralela...');
+    console.log('Iniciando exportación a Excel filtrada y paralela...');
 
     try {
-      const search = this.searchTerm();
+      const fullQuery = this.getCombinedQuery();
       const top = 1000;
 
-      // Primera llamada para obtener el conteo total y la primera página
-      const firstResponse: any = await this.apiService.getStockAprobado(search, top).toPromise();
+      // Primera llamada para obtener el conteo total y la primera página usando la query combinada
+      const firstResponse: any = await firstValueFrom(this.apiService.getStockAprobado(fullQuery, top));
       
       if (!firstResponse) {
         throw new Error('No se recibió respuesta del servidor');
@@ -198,7 +225,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       let allData = [...(firstResponse.results || [])];
       
       if (totalRecords === 0) {
-        alert('No hay datos para exportar');
+        alert('No hay datos para exportar con los filtros actuales');
         this.loadingExport.set(false);
         return;
       }
@@ -210,10 +237,10 @@ export class InventoryComponent implements OnInit, OnDestroy {
         const promises: Promise<any>[] = [];
         // Empezamos desde la página 2
         for (let i = 2; i <= totalPages; i++) {
-          // Construimos la URL manualmente para asegurar el número de página y el top
-          const pageUrl = `StockAprobado/?page=${i}&top=${top}${search ? '&buscar=' + encodeURIComponent(search) : ''}`;
+          // Construimos la URL manualmente para asegurar el número de página y el top, manteniendo los filtros
+          const pageUrl = `StockAprobado/?page=${i}&top=${top}${fullQuery}`;
           
-          const p = this.apiService.getStockAprobado(pageUrl).toPromise().then((resp: any) => {
+          const p = firstValueFrom(this.apiService.getStockAprobado(pageUrl)).then((resp: any) => {
             // Actualizar progreso conforme terminan las peticiones
             const currentProgress = this.exportProgress();
             this.exportProgress.set(Math.min(99, currentProgress + Math.round((1 / totalPages) * 100)));
