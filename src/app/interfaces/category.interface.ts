@@ -6,6 +6,6 @@ export interface Category {
   id: number;
   url: string;
   nombre: string;
-  tipos?: string[]; // Cambiado a array para soportar múltiples tipos por categoría
+  tipo?: string; // Regresamos a string simple (ForeignKey en Backend)
   familia_id: string | any; // URL de la familia relacionada o el objeto completo
 }

@@ -79,7 +79,7 @@
           @for (item of stockItems(); track item.prod_id?.codigo) {
           <tr>
             <td>
-              <div class="prod-cat">{{ item.prod_id?.cat_id?.nombre || '-' }}</div>
+              <div class="prod-cat" [title]="item.displayCategory">{{ item.displayCategory }}</div>
             </td>
             <td>
               <div class="prod-code">{{ item.prod_id?.codigo }}</div>

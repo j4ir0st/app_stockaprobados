@@ -58,14 +58,14 @@ export class InventoryComponent implements OnInit, OnDestroy {
     // Escuchar cambios en los parámetros de consulta (para filtrado por categoría o familia)
     this.route.queryParams.subscribe(params => {
       const categoria = params['prod_id__cat_id__nombre'];
-      const tipoCategoria = params['prod_id__cat_id__tipo'];
+      const tipoCategoria = params['prod_id__cat_id__tipo_id__nombre'] || params['prod_id__cat_id__tipo'];
       const familia = params['prod_id__cat_id__familia_id__nombre'];
 
       let filterQuery = '';
       if (tipoCategoria) {
         console.log('Filtrando por tipo de categoría:', tipoCategoria);
         this.tipoCategoriaTitle.set(tipoCategoria);
-        filterQuery = `&prod_id__cat_id__tipo=${encodeURIComponent(tipoCategoria)}`;
+        filterQuery = `&prod_id__cat_id__tipo_id__nombre=${encodeURIComponent(tipoCategoria)}`;
       } else if (categoria) {
         console.log('Filtrando por categoría:', categoria);
         this.tipoCategoriaTitle.set(null);
@@ -138,6 +138,39 @@ export class InventoryComponent implements OnInit, OnDestroy {
       let cleanCode = fullCode.includes(':') ? fullCode.split(':')[1].trim() : fullCode.trim();
       
       const key = cleanCode || fullCode;
+
+      // Obtener filtros activos para limpiar la visualización de categorías
+      const activeType = this.tipoCategoriaTitle();
+      const activeCatName = this.route.snapshot.queryParams['prod_id__cat_id__nombre'];
+
+      // Manejar múltiples categorías (M2M)
+      let cats = item.prod_id?.cat_ids || item.prod_id?.cat_id;
+      let catDisplay = '';
+      if (Array.isArray(cats)) {
+        let filteredCats = cats;
+        
+        if (activeType) {
+          // Si filtramos por TIPO (Trauma), mostramos solo las categorías de ese tipo
+          filteredCats = cats.filter(c => {
+            const t = c.tipo || c.tipo_id;
+            const tName = typeof t === 'string' ? t : t?.nombre;
+            return tName === activeType;
+          });
+        } else if (activeCatName) {
+          // Si filtramos por NOMBRE de categoría, mostramos solo esa
+          filteredCats = cats.filter(c => c.nombre === activeCatName);
+        }
+
+        // Si el filtro no arroja resultados o no hay filtro activo, mostramos todos sin duplicar nombres
+        const displayList = filteredCats.length > 0 ? filteredCats : cats;
+        const uniqueNames = Array.from(new Set(displayList.map(c => c.nombre)));
+        catDisplay = uniqueNames.join(', ');
+      } else if (cats && cats.nombre) {
+        catDisplay = cats.nombre;
+      } else {
+        catDisplay = '-';
+      }
+      item.displayCategory = catDisplay;
 
       if (aggregated.has(key)) {
         const existing = aggregated.get(key);

@@ -20,7 +20,7 @@
     <ul>
       @for (item of menuItems; track item.label) {
       <li (click)="onItemClick($event, item)" 
-          [class.active]="(item.label === 'Stock General' && isStockGeneralActive()) || (item.typeKey && (activeTypeKey() === item.typeKey || selectedTypeKey() === item.typeKey))" 
+          [class.active]="selectedTypeKey() ? (selectedTypeKey() === item.typeKey) : (item.label === 'Stock General' ? isStockGeneralActive() : (item.typeKey === activeTypeKey()))" 
           [title]="item.label" style="cursor: pointer;">
         <div class="icon-container">
           @if (item.isAsset) {

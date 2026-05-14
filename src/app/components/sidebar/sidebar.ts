@@ -48,7 +48,7 @@ export class SidebarComponent {
         // Buscar a qué familia pertenece el filtro aplicado
         const familiaNombre = params['prod_id__cat_id__familia_id__nombre'];
         const categoriaNombre = params['prod_id__cat_id__nombre'];
-        const tipoCategoria = params['prod_id__cat_id__tipo'];
+        const tipoCategoria = params['prod_id__cat_id__tipo_id__nombre'] || params['prod_id__cat_id__tipo'];
         
         if (familiaNombre || categoriaNombre || tipoCategoria) {
           // Necesitamos saber a qué typeKey corresponde.
@@ -74,7 +74,7 @@ export class SidebarComponent {
         targetFamilia = this.familyService.families().find(f => f.url === famUrl);
       }
     } else if (tipoCategoria) {
-      const cat = this.familyService.categories().find(c => c.tipos && c.tipos.includes(tipoCategoria));
+      const cat = this.familyService.categories().find(c => c.tipo === tipoCategoria);
       if (cat && cat.familia_id) {
         const famUrl = typeof cat.familia_id === 'string' ? cat.familia_id : cat.familia_id.url;
         targetFamilia = this.familyService.families().find(f => f.url === famUrl);
@@ -111,21 +111,21 @@ export class SidebarComponent {
     // Caso especial para Traumatología: Mostrar TIPOS de categoría ordenados y sin duplicados
     if (this.selectedTypeKey() === 'TR') {
       // 1. Ordenar por ID de menor a mayor
-      cats.sort((a, b) => a.id - b.id);
+      cats.sort((a, b) => (a.id || 0) - (b.id || 0));
 
-      // 2. Hacer distinct aplanando la lista de 'tipos'
+      // 2. Hacer distinct por el campo 'tipo' (resiliente a objetos o strings)
       const uniqueTypes = new Map<string, any>();
       cats.forEach(c => {
-        if (c.tipos && Array.isArray(c.tipos)) {
-          c.tipos.forEach(t => {
-            if (!uniqueTypes.has(t)) {
-              uniqueTypes.set(t, {
-                ...c,
-                nombre: t, // El nombre a mostrar es el tipo individual
-                url: `type-${t}`, // URL ficticia para selección
-                activeTipo: t // Campo auxiliar para saber qué tipo se clickeó
-              });
-            }
+        // El backend puede enviar 'tipo' como string (SlugRelatedField) o como objeto
+        const tipoValue = (c as any).tipo || (c as any).tipo_id;
+        const tipoName = typeof tipoValue === 'string' ? tipoValue : tipoValue?.nombre;
+        
+        if (tipoName && !uniqueTypes.has(tipoName)) {
+          uniqueTypes.set(tipoName, {
+            ...c,
+            nombre: tipoName, // El nombre a mostrar es el tipo
+            url: `type-${tipoName}`, // URL ficticia para selección
+            activeTipo: tipoName // Campo auxiliar para saber qué tipo se clickeó
           });
         }
       });
@@ -212,7 +212,7 @@ export class SidebarComponent {
     // Para Traumatología (TR) filtramos por tipo de categoría en lugar de nombre
     if (this.selectedTypeKey() === 'TR' && (category as any).activeTipo) {
       this.router.navigate(['/inventory'], {
-        queryParams: { prod_id__cat_id__tipo: (category as any).activeTipo }
+        queryParams: { prod_id__cat_id__tipo_id__nombre: (category as any).activeTipo }
       });
     } else {
       this.router.navigate(['/inventory'], {
