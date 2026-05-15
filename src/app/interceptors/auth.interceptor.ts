@@ -11,8 +11,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const token = authService.token;
 
-  // Solo interceptamos peticiones que van hacia nuestro proxy para evitar enviar tokens a dominios externos
-  if (req.url.includes(window.location.origin) || req.url.startsWith('/api/') || req.url.includes('StockAprobado')) {
+  // Solo interceptamos peticiones que van hacia nuestro servidor (vía proxy o relativas)
+  const isInternalRequest = !req.url.startsWith('http') || req.url.includes(window.location.origin);
+
+  if (isInternalRequest) {
     let headers = req.headers;
     
     if (token) {

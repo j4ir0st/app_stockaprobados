@@ -63,6 +63,15 @@
 <!-- Lista de Familias Flotante -->
 @if (selectedTypeKey() && filteredFamilies().length > 0) {
 <div class="family-flyout" [class.collapsed]="sidebarService.isCollapsed()">
+  <div class="flyout-header" (click)="onTypeHeaderClick()" title="Filtrar por este tipo">
+    @if (activeMenuItem()?.isAsset) {
+      <img [src]="activeMenuItem()?.icon" [alt]="activeMenuItem()?.label" class="flyout-header-icon">
+    } @else {
+      <i [class]="activeMenuItem()?.icon + ' flyout-header-icon-fa'"></i>
+    }
+    <span class="flyout-header-label">{{ activeMenuItem()?.label }}</span>
+  </div>
+
   <button class="close-flyout-btn" (click)="closeFlyout()" title="Cerrar lista">
     <i class="fas fa-times"></i>
   </button>
@@ -83,7 +92,7 @@
           @for (cat of hoveredCategories(); track cat.url) {
             <div class="category-name" 
                  [class.selected]="selectedCategoryUrl() === cat.url"
-                 (click)="onCategoryClick(cat)">
+                 (click)="onCategoryClick(cat, family)">
               {{ cat.nombre }}
             </div>
           }

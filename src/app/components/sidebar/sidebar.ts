@@ -4,6 +4,7 @@ import { Router, RouterLink, RouterLinkActive, ActivatedRoute } from '@angular/r
 import { SidebarService } from '../../services/sidebar.service';
 import { FamilyService } from '../../services/family.service';
 import { ConfigService } from '../../services/config.service';
+import { RefreshService } from '../../services/refresh.service';
 import { Category } from '../../interfaces/category.interface';
 
 /**
@@ -21,6 +22,7 @@ export class SidebarComponent {
   private configService = inject(ConfigService);
   public sidebarService = inject(SidebarService);
   public familyService = inject(FamilyService);
+  private refreshService = inject(RefreshService);
   private router = inject(Router);
   private eRef = inject(ElementRef);
   private route = inject(ActivatedRoute);
@@ -145,13 +147,17 @@ export class SidebarComponent {
     return this.familyService.families().filter(f => f.tipo && f.tipo.hasOwnProperty(key));
   });
 
-  menuItems = [
-    { label: 'Stock General', route: '/inventory', icon: 'assets/images/casa-nueva.png', isAsset: true },
-    { label: 'Heridas & Quemados', route: '/quemados', icon: 'assets/images/Quemados y Heridas-icon.png', isAsset: true, typeKey: 'HQ' },
-    { label: 'Traumatología', route: '/trauma', icon: 'assets/images/Traumatología-icon.png', isAsset: true, typeKey: 'TR' },
-    { label: 'Neurocirugía', route: '/neuro', icon: 'assets/images/Neurocirugía-icon.png', isAsset: true, typeKey: 'NR' },
-    { label: 'T. de Sueño y Apnea', route: '/sueno', icon: 'assets/images/Terapia de Sueño y Apnea-icon.png', isAsset: true, typeKey: 'TS' },
-  ];
+  /**
+   * Obtiene el ítem de menú activo actualmente en el flyout.
+   */
+  public activeMenuItem = computed(() => {
+    const key = this.selectedTypeKey();
+    return this.configService.menuItems.find(item => item.typeKey === key);
+  });
+
+  get menuItems() {
+    return this.configService.menuItems;
+  }
 
   /**
    * Maneja el clic en un ítem del menú.
@@ -161,6 +167,10 @@ export class SidebarComponent {
     event.stopPropagation();
 
     console.log('Sidebar onItemClick:', item.label);
+    
+    // Limpiar búsqueda por código al interactuar con el sidebar
+    this.refreshService.solicitarLimpiarBusqueda();
+
     if (item.label === 'Stock General') {
       this.selectedTypeKey.set(null);
       this.router.navigate(['/inventory'], { queryParams: {} });
@@ -174,6 +184,21 @@ export class SidebarComponent {
       this.selectedTypeKey.set(item.typeKey);
       // Se omite la carga de datos al hacer click en los iconos de categorías, solo se abre el menú.
     }
+  }
+
+  /**
+   * Filtra la tabla por el tipo de familia (ej: HQ, TR, etc) al hacer clic en el título del flyout.
+   */
+  onTypeHeaderClick() {
+    const item = this.activeMenuItem();
+    if (!item || !item.typeKey) return;
+
+    console.log('Filtrando por tipo de familia:', item.typeKey);
+    this.refreshService.solicitarLimpiarBusqueda();
+    this.router.navigate(['/inventory'], {
+      queryParams: { prod_id__cat_id__familia_id__tipo: item.typeKey }
+    });
+    this.closeFlyout();
   }
 
   /**
@@ -205,19 +230,27 @@ export class SidebarComponent {
 
   /**
    * Filtra la tabla por el nombre de la categoría seleccionada.
+   * Incluye el filtro de familia para evitar mezclas de registros en HQ, NR y TS.
    */
-  onCategoryClick(category: Category) {
+  onCategoryClick(category: Category, family: any) {
     this.selectedCategoryUrl.set(category.url);
     
+    const typeKey = this.selectedTypeKey();
+
     // Para Traumatología (TR) filtramos por tipo de categoría en lugar de nombre
-    if (this.selectedTypeKey() === 'TR' && (category as any).activeTipo) {
+    if (typeKey === 'TR' && (category as any).activeTipo) {
       this.router.navigate(['/inventory'], {
         queryParams: { prod_id__cat_id__tipo_id__nombre: (category as any).activeTipo }
       });
     } else {
-      this.router.navigate(['/inventory'], {
-        queryParams: { prod_id__cat_id__nombre: category.nombre }
-      });
+      const queryParams: any = { prod_id__cat_id__nombre: category.nombre };
+      
+      // Aplicar filtro de familia para HQ, NR y TS para evitar que se mezclen registros de diferentes familias
+      if (typeKey === 'HQ' || typeKey === 'NR' || typeKey === 'TS') {
+        queryParams.prod_id__cat_id__familia_id__nombre = family.nombre;
+      }
+
+      this.router.navigate(['/inventory'], { queryParams });
     }
     this.closeFlyout();
   }

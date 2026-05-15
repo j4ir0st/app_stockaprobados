@@ -55,28 +55,53 @@ export class InventoryComponent implements OnInit, OnDestroy {
       this.cargarStock();
     });
 
+    // Escuchar evento para limpiar la búsqueda
+    this.refreshService.limpiarBusqueda$.subscribe(() => {
+      console.log('Limpiando búsqueda por evento externo...');
+      this.searchTerm.set('');
+    });
+
     // Escuchar cambios en los parámetros de consulta (para filtrado por categoría o familia)
     this.route.queryParams.subscribe(params => {
+      // Limpiar el buscador cada vez que cambien los filtros de la URL (navegación desde sidebar)
+      this.searchTerm.set('');
+      
       const categoria = params['prod_id__cat_id__nombre'];
       const tipoCategoria = params['prod_id__cat_id__tipo_id__nombre'] || params['prod_id__cat_id__tipo'];
       const familia = params['prod_id__cat_id__familia_id__nombre'];
+      const familiaTipo = params['prod_id__cat_id__familia_id__tipo'];
+      const buscarParam = params['buscar']; // Nuevo: chequear si viene búsqueda en URL
 
       let filterQuery = '';
+      
+      // Construir la query acumulando filtros si están presentes
       if (tipoCategoria) {
         console.log('Filtrando por tipo de categoría:', tipoCategoria);
+        filterQuery += `&prod_id__cat_id__tipo_id__nombre=${encodeURIComponent(tipoCategoria)}`;
         this.tipoCategoriaTitle.set(tipoCategoria);
-        filterQuery = `&prod_id__cat_id__tipo_id__nombre=${encodeURIComponent(tipoCategoria)}`;
-      } else if (categoria) {
-        console.log('Filtrando por categoría:', categoria);
-        this.tipoCategoriaTitle.set(null);
-        filterQuery = `&prod_id__cat_id__nombre=${encodeURIComponent(categoria)}`;
-      } else if (familia) {
-        console.log('Filtrando por familia:', familia);
-        this.tipoCategoriaTitle.set(null);
-        filterQuery = `&prod_id__cat_id__familia_id__nombre=${encodeURIComponent(familia)}`;
+      } else if (familiaTipo) {
+        console.log('Filtrando por tipo de familia:', familiaTipo);
+        filterQuery += `&prod_id__cat_id__familia_id__tipo=${encodeURIComponent(familiaTipo)}`;
+        
+        // Obtener el label legible del tipo de familia
+        const label = this.configService.getMenuLabelByType(familiaTipo);
+        this.tipoCategoriaTitle.set(label);
       } else {
-        console.log('Cargando Stock General (sin filtros en URL)...');
         this.tipoCategoriaTitle.set(null);
+      }
+
+      if (categoria) {
+        console.log('Filtrando por categoría:', categoria);
+        filterQuery += `&prod_id__cat_id__nombre=${encodeURIComponent(categoria)}`;
+      }
+
+      if (familia) {
+        console.log('Filtrando por familia:', familia);
+        filterQuery += `&prod_id__cat_id__familia_id__nombre=${encodeURIComponent(familia)}`;
+      }
+
+      if (!tipoCategoria && !categoria && !familia && !familiaTipo) {
+        console.log('Cargando Stock General (sin filtros en URL)...');
         this.searchTerm.set(''); // Limpiar buscador al volver a Stock General
         filterQuery = '';
       }

@@ -9,7 +9,9 @@ const PROXY_CONFIG = [
   {
     context: [
       "/api",
-      "/StockAprobado"
+      "/StockAprobado",
+      "/SA_",
+      "/api-proxy"
     ],
     target: process.env.API_URL,
     secure: true,
