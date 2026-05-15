@@ -18,6 +18,10 @@
     width: 80px;
 }
 
+.sidebar.dark-mode {
+    background: color-mix(in srgb, var(--primary-blue), black 35%);
+}
+
 .sidebar-header {
     height: 28px;
     padding: 0 1.2rem;
@@ -163,7 +167,8 @@ nav span {
     background-color: #f0f7ff;
     box-shadow: 10px 0 20px rgba(0, 0, 0, 0.05);
     z-index: 900;
-    padding: 2.5rem 1.2rem 1.2rem; /* Aumentado padding superior para el botón X */
+    padding: 2.5rem 1.2rem 1.2rem;
+    /* Aumentado padding superior para el botón X */
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border-right: 1px solid rgba(0, 123, 255, 0.1);
     display: flex;
@@ -232,8 +237,15 @@ nav span {
 }
 
 @keyframes slideIn {
-    from { transform: translateX(-20px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+    from {
+        transform: translateX(-20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
 
 .family-flyout.collapsed {
@@ -321,8 +333,15 @@ nav span {
 }
 
 @keyframes fadeInCategory {
-    from { opacity: 0; transform: translateY(-5px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .category-name {
@@ -357,4 +376,43 @@ nav span {
 
 .family-item:active {
     transform: scale(0.98);
+}
+/* --- Dark Mode Overrides para Flyout --- */
+.family-flyout.dark-mode {
+    background-color: color-mix(in srgb, var(--primary-blue), black 45%);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 12px 0 30px rgba(0, 0, 0, 0.4);
+}
+
+.family-flyout.dark-mode .flyout-header {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.family-flyout.dark-mode .flyout-header-label {
+    color: white;
+}
+
+.family-flyout.dark-mode .flyout-header-icon {
+    filter: brightness(0) invert(1);
+}
+
+.family-flyout.dark-mode .family-item {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.family-flyout.dark-mode .family-item:hover {
+    background: var(--primary-blue);
+    color: white;
+}
+
+.family-flyout.dark-mode .close-flyout-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.family-flyout.dark-mode .close-flyout-btn:hover {
+    background: white;
+    color: var(--primary-blue);
 }

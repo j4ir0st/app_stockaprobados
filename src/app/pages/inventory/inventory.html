@@ -77,7 +77,7 @@
         </thead>
         <tbody>
           @for (item of stockItems(); track item.prod_id?.codigo) {
-          <tr>
+          <tr [class.out-of-stock]="(item.stock_total || item.stock) <= 0">
             <td>
               <div class="prod-cat" [title]="item.displayCategory">{{ item.displayCategory }}</div>
             </td>

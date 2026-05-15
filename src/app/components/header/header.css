@@ -13,7 +13,7 @@
 }
 
 .main-header.dark-mode {
-    background: var(--secondary-color);
+    background: color-mix(in srgb, var(--secondary-color), black 35%);
     /* Azul petróleo dinámico para modo oscuro */
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     border-bottom: 1px solid var(--secondary-color);
@@ -457,7 +457,7 @@
 .color-option input[type="color"]::-webkit-color-swatch {
     border: none;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .btn-reset-colors {

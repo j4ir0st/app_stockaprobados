@@ -252,7 +252,8 @@
     margin-bottom: 0rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     animation: slideDown 0.3s ease-out;
-    flex-shrink: 0; /* Asegura que no se encoja el título */
+    flex-shrink: 0;
+    /* Asegura que no se encoja el título */
 }
 
 .category-filter-title i {
@@ -278,6 +279,7 @@
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -328,8 +330,21 @@
     background-color: var(--row-alt);
 }
 
+/* Resaltado para productos sin stock */
+.stock-table tbody tr.out-of-stock {
+    background-color: rgba(239, 68, 68, 0.18);
+}
+
+.stock-table tbody tr.out-of-stock:nth-child(even) {
+    background-color: rgba(239, 68, 68, 0.24);
+}
+
 .stock-table tbody tr:hover {
     background-color: color-mix(in srgb, var(--secondary-color), transparent 85%);
+}
+
+.stock-table tbody tr.out-of-stock:hover {
+    background-color: rgba(239, 68, 68, 0.36);
 }
 
 .prod-id {

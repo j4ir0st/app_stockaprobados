@@ -1,4 +1,6 @@
-<aside class="sidebar" [class.collapsed]="sidebarService.isCollapsed()">
+<aside class="sidebar" 
+       [class.collapsed]="sidebarService.isCollapsed()"
+       [class.dark-mode]="themeService.currentTheme() === 'dark'">
   <div class="sidebar-header" [class.centered]="sidebarService.isCollapsed()">
     @if (!sidebarService.isCollapsed()) {
     <img [src]="logoUrl" alt="Surgicorp Logo" class="sidebar-logo">
@@ -62,7 +64,9 @@
 
 <!-- Lista de Familias Flotante -->
 @if (selectedTypeKey() && filteredFamilies().length > 0) {
-<div class="family-flyout" [class.collapsed]="sidebarService.isCollapsed()">
+<div class="family-flyout" 
+     [class.collapsed]="sidebarService.isCollapsed()"
+     [class.dark-mode]="themeService.currentTheme() === 'dark'">
   <div class="flyout-header" (click)="onTypeHeaderClick()" title="Filtrar por este tipo">
     @if (activeMenuItem()?.isAsset) {
       <img [src]="activeMenuItem()?.icon" [alt]="activeMenuItem()?.label" class="flyout-header-icon">

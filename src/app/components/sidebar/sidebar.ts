@@ -4,6 +4,7 @@ import { Router, RouterLink, RouterLinkActive, ActivatedRoute } from '@angular/r
 import { SidebarService } from '../../services/sidebar.service';
 import { FamilyService } from '../../services/family.service';
 import { ConfigService } from '../../services/config.service';
+import { ThemeService } from '../../services/theme.service';
 import { RefreshService } from '../../services/refresh.service';
 import { Category } from '../../interfaces/category.interface';
 
@@ -22,6 +23,7 @@ export class SidebarComponent {
   private configService = inject(ConfigService);
   public sidebarService = inject(SidebarService);
   public familyService = inject(FamilyService);
+  public themeService = inject(ThemeService);
   private refreshService = inject(RefreshService);
   private router = inject(Router);
   private eRef = inject(ElementRef);
