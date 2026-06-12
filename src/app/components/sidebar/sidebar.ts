@@ -6,6 +6,7 @@ import { FamilyService } from '../../services/family.service';
 import { ConfigService } from '../../services/config.service';
 import { ThemeService } from '../../services/theme.service';
 import { RefreshService } from '../../services/refresh.service';
+import { AuthService } from '../../services/auth.service';
 import { Category } from '../../interfaces/category.interface';
 
 /**
@@ -24,6 +25,7 @@ export class SidebarComponent {
   public sidebarService = inject(SidebarService);
   public familyService = inject(FamilyService);
   public themeService = inject(ThemeService);
+  private authService = inject(AuthService);
   private refreshService = inject(RefreshService);
   private router = inject(Router);
   private eRef = inject(ElementRef);
@@ -157,8 +159,10 @@ export class SidebarComponent {
     return this.configService.menuItems.find(item => item.typeKey === key);
   });
 
+  // Ítems del menú filtrados según las restricciones del usuario actual
   get menuItems() {
-    return this.configService.menuItems;
+    const username = this.authService.currentUser()?.username;
+    return this.configService.getMenuItemsParaUsuario(username);
   }
 
   /**

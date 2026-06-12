@@ -1,6 +1,6 @@
 import { Component, signal, inject, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
 import { forkJoin, of, firstValueFrom } from 'rxjs';
@@ -14,7 +14,7 @@ import { Subscription } from 'rxjs';
 @Component({
   selector: 'app-inventory',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DatePipe],
   templateUrl: './inventory.html',
   styleUrl: './inventory.css'
 })
@@ -48,6 +48,13 @@ export class InventoryComponent implements OnInit, OnDestroy {
   // Almacena la query de filtros activos (categoría, familia, tipo) para exportación y búsqueda
   currentFiltersQuery = signal<string>('');
 
+  // Estado de la vista de detalle CSG
+  vistaDetalle = signal(false);
+  productoSeleccionado = signal<any>(null);
+  itemsConsignacion = signal<any[]>([]);
+  loadingDetalle = signal(false);
+  errorDetalle = signal<string | null>(null);
+
   ngOnInit(): void {
     // Escuchar eventos de refresco desde el header
     this.suscripcionRefresco = this.refreshService.refresco$.subscribe(() => {
@@ -65,7 +72,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.route.queryParams.subscribe(params => {
       // Limpiar el buscador cada vez que cambien los filtros de la URL (navegación desde sidebar)
       this.searchTerm.set('');
-      
+
       const categoria = params['prod_id__cat_id__nombre'];
       const tipoCategoria = params['prod_id__cat_id__tipo_id__nombre'] || params['prod_id__cat_id__tipo'];
       const familia = params['prod_id__cat_id__familia_id__nombre'];
@@ -73,7 +80,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       const buscarParam = params['buscar']; // Nuevo: chequear si viene búsqueda en URL
 
       let filterQuery = '';
-      
+
       // Construir la query acumulando filtros si están presentes
       if (tipoCategoria) {
         console.log('Filtrando por tipo de categoría:', tipoCategoria);
@@ -82,7 +89,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       } else if (familiaTipo) {
         console.log('Filtrando por tipo de familia:', familiaTipo);
         filterQuery += `&prod_id__cat_id__familia_id__tipo=${encodeURIComponent(familiaTipo)}`;
-        
+
         // Obtener el label legible del tipo de familia
         const label = this.configService.getMenuLabelByType(familiaTipo);
         this.tipoCategoriaTitle.set(label);
@@ -161,7 +168,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       // Extraer código sin prefijo (ej: "MER:XF-DMDF1" -> "XF-DMDF1")
       let fullCode = item.prod_id?.codigo || '';
       let cleanCode = fullCode.includes(':') ? fullCode.split(':')[1].trim() : fullCode.trim();
-      
+
       const key = cleanCode || fullCode;
 
       // Obtener filtros activos para limpiar la visualización de categorías
@@ -173,7 +180,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       let catDisplay = '';
       if (Array.isArray(cats)) {
         let filteredCats = cats;
-        
+
         if (activeType) {
           // Si filtramos por TIPO (Trauma), mostramos solo las categorías de ese tipo
           filteredCats = cats.filter(c => {
@@ -207,7 +214,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
         existing.observados = (existing.observados || 0) + (item.observados || 0);
         existing.consignacion = (existing.consignacion || 0) + (item.consignacion || 0);
         existing.venta_sujeta = (existing.venta_sujeta || 0) + (item.venta_sujeta || 0);
-        existing.stock_total = (existing.stock_total || 0) + (item.stock_total || item.stock || 0);
+        existing.stock = (existing.stock || 0) + (item.stock || 0);
       } else {
         // Clonar y limpiar el código
         const newItem = { ...item };
@@ -223,7 +230,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.stockItems.set(finalResults);
     this.nextUrl.set(data.next || null);
     this.prevUrl.set(data.previous || null);
-    
+
     // Recalcular totalCount restando los duplicados eliminados en esta página
     const reduction = results.length - finalResults.length;
     const currentTotal = data.count || results.length;
@@ -274,14 +281,14 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
       // Primera llamada para obtener el conteo total y la primera página usando la query combinada
       const firstResponse: any = await firstValueFrom(this.apiService.getStockAprobado(fullQuery, top));
-      
+
       if (!firstResponse) {
         throw new Error('No se recibió respuesta del servidor');
       }
 
       const totalRecords = firstResponse.count || 0;
       let allData = [...(firstResponse.results || [])];
-      
+
       if (totalRecords === 0) {
         alert('No hay datos para exportar con los filtros actuales');
         this.loadingExport.set(false);
@@ -297,7 +304,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
         for (let i = 2; i <= totalPages; i++) {
           // Construimos la URL manualmente para asegurar el número de página y el top, manteniendo los filtros
           const pageUrl = `StockAprobado/?page=${i}&top=${top}${fullQuery}`;
-          
+
           const p = firstValueFrom(this.apiService.getStockAprobado(pageUrl)).then((resp: any) => {
             // Actualizar progreso conforme terminan las peticiones
             const currentProgress = this.exportProgress();
@@ -380,6 +387,70 @@ export class InventoryComponent implements OnInit, OnDestroy {
   buscar(): void {
     console.log('Botón buscar clickeado. Término:', this.searchTerm());
     this.cargarStock();
+  }
+
+  /**
+   * Abre la tarjeta de detalle CSG consultando la tabla Stock_ERP.
+   * @param item Registro del inventario con campo consignacion > 0.
+   */
+  verDetalleCSG(item: any): void {
+    const codigo = item.prod_id?.codigo;
+    if (!codigo || !item.consignacion) return;
+
+    this.productoSeleccionado.set(item);
+    this.itemsConsignacion.set([]);
+    this.errorDetalle.set(null);
+    this.loadingDetalle.set(true);
+    this.vistaDetalle.set(true);
+
+    this.apiService.getStockERP(codigo, 'CONSIGNACION').subscribe({
+      next: (data) => {
+        const resultados = data.results || (Array.isArray(data) ? data : []);
+
+        // Agregar registros por numero_serie en memoria
+        const agregado = new Map<string, any>();
+
+        resultados.forEach((reg: any) => {
+          const clave = reg.numero_serie || `__sin_serie_${Math.random()}`;
+          const cantidadActual = Math.round(reg.cantidad || 0);
+
+          if (agregado.has(clave)) {
+            const existente = agregado.get(clave);
+            // Sumar cantidad
+            existente.cantidad += cantidadActual;
+            // Conservar los datos del registro con fecha más reciente
+            const fechaExistente = new Date(existente.fecha_movimiento || 0);
+            const fechaNueva = new Date(reg.fecha_movimiento || 0);
+            if (fechaNueva > fechaExistente) {
+              agregado.set(clave, { ...reg, cantidad: existente.cantidad });
+            }
+          } else {
+            agregado.set(clave, { ...reg, cantidad: cantidadActual });
+          }
+        });
+
+        // Filtrar registros con cantidad cero o negativa
+        const filtrados = Array.from(agregado.values()).filter(reg => reg.cantidad > 0);
+
+        this.itemsConsignacion.set(filtrados);
+        this.loadingDetalle.set(false);
+      },
+      error: (err) => {
+        console.error('Error al cargar detalle CSG:', err);
+        this.errorDetalle.set('No se pudo cargar el detalle. Intente nuevamente.');
+        this.loadingDetalle.set(false);
+      }
+    });
+  }
+
+  /**
+   * Regresa a la vista principal de la tabla de inventario.
+   */
+  regresarATabla(): void {
+    this.vistaDetalle.set(false);
+    this.productoSeleccionado.set(null);
+    this.itemsConsignacion.set([]);
+    this.errorDetalle.set(null);
   }
 
   /**

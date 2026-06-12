@@ -28,6 +28,25 @@ export class ConfigService {
     { label: 'T. de Sueño y Apnea', route: '/sueno', icon: 'assets/images/Terapia de Sueño y Apnea-icon.png', isAsset: true, typeKey: 'TS' },
   ];
 
+  // Mapa de usuarios con acceso restringido a opciones específicas del menú
+  private readonly restriccionesPorUsuario: Record<string, string[]> = {
+    'dfigueroa': ['Stock General', 'Heridas & Quemados'],
+    'kcarlevarino': ['Stock General', 'Traumatología'],
+    'mrodriguez': ['Stock General', 'Traumatología'],
+    'agomez': ['Stock General', 'T. de Sueño y Apnea'],
+  };
+
+  /**
+   * Devuelve los ítems de menú visibles para el usuario indicado.
+   * Si el usuario no tiene restricciones, retorna el menú completo.
+   */
+  getMenuItemsParaUsuario(username: string | undefined): typeof this.menuItems {
+    if (!username) return this.menuItems;
+    const opcionesPermitidas = this.restriccionesPorUsuario[username];
+    if (!opcionesPermitidas) return this.menuItems;
+    return this.menuItems.filter(item => opcionesPermitidas.includes(item.label));
+  }
+
   /**
    * Busca el nombre legible de un tipo de familia.
    */

@@ -456,3 +456,272 @@
         overflow-x: auto;
     }
 }
+
+/* =========================================
+   Botón CSG clicable en la tabla principal
+   ========================================= */
+.btn-csg {
+    background: rgba(37, 99, 235, 0.12);
+    color: #1d4ed8;
+    border: 1px solid rgba(37, 99, 235, 0.3);
+    border-radius: 6px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 32px;
+    text-align: center;
+}
+
+.btn-csg:hover {
+    background: #1d4ed8;
+    color: white;
+    border-color: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(29, 78, 216, 0.3);
+}
+
+.inventory-container.dark-mode .btn-csg {
+    background: rgba(96, 165, 250, 0.15);
+    color: #93c5fd;
+    border-color: rgba(96, 165, 250, 0.35);
+}
+
+.inventory-container.dark-mode .btn-csg:hover {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+/* =========================================
+   Vista de Detalle CSG
+   ========================================= */
+.detalle-csg-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    height: 100%;
+    overflow: hidden;
+    animation: slideDown 0.3s ease-out;
+}
+
+/* Encabezado del detalle */
+.detalle-header {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 0.85rem 1.25rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    flex-shrink: 0;
+}
+
+.btn-regresar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: 1.5px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: 8px;
+    padding: 0.45rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.btn-regresar:hover {
+    background: var(--primary-blue, #2563eb);
+    color: white;
+    border-color: var(--primary-blue, #2563eb);
+}
+
+.detalle-producto-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+}
+
+.detalle-icono {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    box-shadow: 0 3px 10px rgba(29, 78, 216, 0.3);
+    letter-spacing: 0.5px;
+}
+
+.detalle-producto-texto {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.detalle-codigo {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--primary-blue, #2563eb);
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+.detalle-descripcion {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+/* Título de sección de detalle */
+.detalle-titulo-seccion {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 1.25rem;
+    background: var(--card-bg);
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.detalle-titulo-seccion i {
+    color: var(--primary-blue, #2563eb);
+}
+
+.detalle-titulo-seccion h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.detalle-count-badge {
+    margin-left: auto;
+    background: rgba(37, 99, 235, 0.12);
+    color: #1d4ed8;
+    border: 1px solid rgba(37, 99, 235, 0.25);
+    border-radius: 20px;
+    padding: 0.15rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.inventory-container.dark-mode .detalle-count-badge {
+    background: rgba(96, 165, 250, 0.15);
+    color: #93c5fd;
+    border-color: rgba(96, 165, 250, 0.3);
+}
+
+/* Estado de carga */
+.detalle-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 3rem;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.detalle-loading i {
+    color: var(--primary-blue, #2563eb);
+    font-size: 1.4rem;
+}
+
+/* Estado de error */
+.detalle-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2rem;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 10px;
+    color: #b91c1c;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Tabla de detalle */
+.detalle-tabla-container {
+    background: var(--card-bg);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    overflow-y: auto;
+    overflow-x: auto;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    flex: 1;
+}
+
+.detalle-tabla th:nth-child(4),
+.detalle-tabla td:nth-child(4) {
+    min-width: 160px;
+}
+
+/* Badges en tabla de detalle */
+.badge-tipo {
+    background: rgba(99, 102, 241, 0.12);
+    color: #4338ca;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 5px;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.badge-almacenaje {
+    background: rgba(16, 185, 129, 0.12);
+    color: #065f46;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 5px;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.serie-codigo {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.fecha-celda {
+    white-space: nowrap;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.cantidad-celda {
+    text-align: center;
+}
+
+.inventory-container.dark-mode .badge-tipo {
+    background: rgba(129, 140, 248, 0.15);
+    color: #a5b4fc;
+    border-color: rgba(129, 140, 248, 0.3);
+}
+
+.inventory-container.dark-mode .badge-almacenaje {
+    background: rgba(52, 211, 153, 0.15);
+    color: #6ee7b7;
+    border-color: rgba(52, 211, 153, 0.3);
+}

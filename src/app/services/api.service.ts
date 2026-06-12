@@ -76,6 +76,18 @@ export class ApiService {
   }
 
 
+  /**
+   * Obtiene el detalle de stock ERP filtrado por código de producto y tipo de almacenaje.
+   * @param codigoProducto Código del producto a consultar.
+   * @param tipoAlmacenaje Tipo de almacenaje (ej: 'CONSIGNACION').
+   */
+  getStockERP(codigoProducto: string, tipoAlmacenaje: string): Observable<any> {
+    const params = new HttpParams()
+      .set('format', 'json')
+      .set('codigo_producto', codigoProducto)
+      .set('tipo_almacenaje', tipoAlmacenaje);
+    return this.http.get<any>(`${this.baseUrl}Stock_ERP/`, { params });
+  }
 
   /**
    * Ajusta una URL absoluta (del backend) para que use el proxy local '/api-proxy/'.
