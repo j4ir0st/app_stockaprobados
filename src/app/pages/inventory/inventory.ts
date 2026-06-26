@@ -1,4 +1,4 @@
-import { Component, signal, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, signal, computed, inject, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -51,9 +51,45 @@ export class InventoryComponent implements OnInit, OnDestroy {
   // Estado de la vista de detalle CSG
   vistaDetalle = signal(false);
   productoSeleccionado = signal<any>(null);
-  itemsConsignacion = signal<any[]>([]);
+  itemsConsignacion = signal<any[]>([]);       // Registros agregados con cantidad > 0
+  itemsConsignacionCeros = signal<any[]>([]);  // Registros agregados que quedaron en cero
+  itemsConsignacionRaw = signal<any[]>([]);    // Registros originales del kardex sin procesar
   loadingDetalle = signal(false);
   errorDetalle = signal<string | null>(null);
+
+  // Modos de visualización del detalle
+  mostrarKardexOriginal = signal(false);  // Muestra el kardex sin agregar
+  mostrarCeros = signal(false);           // Muestra también los registros que quedaron en cero
+  ordenFechaAscendente = signal(false);   // Orden de fecha: false = descendente (por defecto, igual que API)
+  filtroSerie = signal('');               // Filtro de texto por número de serie
+  filtroDeposito = signal('');            // Filtro de texto por nombre de depósito
+
+  // Items a mostrar según el modo activo, con filtrado y ordenamiento en memoria
+  itemsVisibles = computed(() => {
+    let items: any[];
+    if (this.mostrarKardexOriginal()) items = this.itemsConsignacionRaw();
+    else if (this.mostrarCeros()) items = [...this.itemsConsignacion(), ...this.itemsConsignacionCeros()];
+    else items = this.itemsConsignacion();
+
+    // Filtrar por número de serie en memoria (búsqueda parcial sin distinción de mayúsculas)
+    const filtroPorSerie = this.filtroSerie().trim().toLowerCase();
+    if (filtroPorSerie) {
+      items = items.filter(reg => (reg.numero_serie || '').toLowerCase().includes(filtroPorSerie));
+    }
+
+    // Filtrar por nombre de depósito en memoria (búsqueda parcial sin distinción de mayúsculas)
+    const filtroPorDeposito = this.filtroDeposito().trim().toLowerCase();
+    if (filtroPorDeposito) {
+      items = items.filter(reg => (reg.nombre_deposito || '').toLowerCase().includes(filtroPorDeposito));
+    }
+
+    // Ordenar en memoria sin hacer consultas al servidor
+    return [...items].sort((a, b) => {
+      const fechaA = new Date(a.fecha_movimiento || 0).getTime();
+      const fechaB = new Date(b.fecha_movimiento || 0).getTime();
+      return this.ordenFechaAscendente() ? fechaA - fechaB : fechaB - fechaA;
+    });
+  });
 
   ngOnInit(): void {
     // Escuchar eventos de refresco desde el header
@@ -70,6 +106,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
     // Escuchar cambios en los parámetros de consulta (para filtrado por categoría o familia)
     this.route.queryParams.subscribe(params => {
+      // Cerrar la vista detalle si el usuario navega a otra sección
+      if (this.vistaDetalle()) {
+        this.regresarATabla();
+      }
+
       // Limpiar el buscador cada vez que cambien los filtros de la URL (navegación desde sidebar)
       this.searchTerm.set('');
 
@@ -391,56 +432,100 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   /**
    * Abre la tarjeta de detalle CSG consultando la tabla Stock_ERP.
+   * Carga todas las páginas disponibles en paralelo usando top=1000 para minimizar consultas.
    * @param item Registro del inventario con campo consignacion > 0.
    */
-  verDetalleCSG(item: any): void {
+  async verDetalleCSG(item: any): Promise<void> {
     const codigo = item.prod_id?.codigo;
     if (!codigo || !item.consignacion) return;
 
     this.productoSeleccionado.set(item);
     this.itemsConsignacion.set([]);
+    this.itemsConsignacionCeros.set([]);
+    this.itemsConsignacionRaw.set([]);
+    this.mostrarKardexOriginal.set(false);
+    this.mostrarCeros.set(false);
+    this.ordenFechaAscendente.set(false);
+    this.filtroSerie.set('');
+    this.filtroDeposito.set('');
     this.errorDetalle.set(null);
     this.loadingDetalle.set(true);
     this.vistaDetalle.set(true);
 
-    this.apiService.getStockERP(codigo, 'CONSIGNACION').subscribe({
-      next: (data) => {
-        const resultados = data.results || (Array.isArray(data) ? data : []);
+    try {
+      const top = 1000;
 
-        // Agregar registros por numero_serie en memoria
-        const agregado = new Map<string, any>();
+      // Primera consulta con top=1000 para minimizar páginas necesarias
+      const primeraRespuesta: any = await firstValueFrom(
+        this.apiService.getStockERP(codigo, 'CONSIGNACION', top)
+      );
 
-        resultados.forEach((reg: any) => {
-          const clave = reg.numero_serie || `__sin_serie_${Math.random()}`;
-          const cantidadActual = Math.round(reg.cantidad || 0);
+      if (!primeraRespuesta) throw new Error('Sin respuesta del servidor');
 
-          if (agregado.has(clave)) {
-            const existente = agregado.get(clave);
-            // Sumar cantidad
-            existente.cantidad += cantidadActual;
-            // Conservar los datos del registro con fecha más reciente
-            const fechaExistente = new Date(existente.fecha_movimiento || 0);
-            const fechaNueva = new Date(reg.fecha_movimiento || 0);
-            if (fechaNueva > fechaExistente) {
-              agregado.set(clave, { ...reg, cantidad: existente.cantidad });
-            }
-          } else {
-            agregado.set(clave, { ...reg, cantidad: cantidadActual });
-          }
+      let todosLosResultados = [...(primeraRespuesta.results || [])];
+
+      // Si hay más páginas, cargarlas todas en paralelo
+      if (primeraRespuesta.next) {
+        const totalRegistros = primeraRespuesta.count || 0;
+        const totalPaginas = Math.ceil(totalRegistros / top);
+        console.log(`Stock_ERP: ${totalRegistros} registros en ${totalPaginas} páginas. Cargando páginas restantes en paralelo...`);
+
+        const promesas: Promise<any>[] = [];
+        for (let pagina = 2; pagina <= totalPaginas; pagina++) {
+          const urlPagina = `Stock_ERP/?page=${pagina}&top=${top}&codigo_producto=${encodeURIComponent(codigo)}&tipo_almacenaje=CONSIGNACION`;
+          promesas.push(firstValueFrom(this.apiService.getStockERPPagina(urlPagina)));
+        }
+
+        const respuestasPaginadas = await Promise.all(promesas);
+        respuestasPaginadas.forEach((resp: any) => {
+          todosLosResultados = [...todosLosResultados, ...(resp?.results || [])];
         });
-
-        // Filtrar registros con cantidad cero o negativa
-        const filtrados = Array.from(agregado.values()).filter(reg => reg.cantidad > 0);
-
-        this.itemsConsignacion.set(filtrados);
-        this.loadingDetalle.set(false);
-      },
-      error: (err) => {
-        console.error('Error al cargar detalle CSG:', err);
-        this.errorDetalle.set('No se pudo cargar el detalle. Intente nuevamente.');
-        this.loadingDetalle.set(false);
       }
-    });
+
+      console.log(`Stock_ERP: ${todosLosResultados.length} registros totales cargados.`);
+
+      // Guardar el kardex original con cantidades como enteros
+      this.itemsConsignacionRaw.set(
+        todosLosResultados.map((reg: any) => ({ ...reg, cantidad: Math.round(reg.cantidad || 0) }))
+      );
+
+      // Agregar registros por numero_serie + deposito: misma serie puede existir en varios depósitos
+      const agregado = new Map<string, any>();
+
+      todosLosResultados.forEach((reg: any) => {
+        // La clave combina serie y depósito para agrupar correctamente por ubicación
+        const clave = reg.numero_serie
+          ? `${reg.numero_serie}|${reg.nombre_deposito || ''}`
+          : `__sin_serie_${Math.random()}`;
+        const cantidadActual = Math.round(reg.cantidad || 0);
+
+        if (agregado.has(clave)) {
+          const existente = agregado.get(clave);
+          // Sumar cantidad
+          existente.cantidad += cantidadActual;
+          // Conservar los datos del registro con fecha más reciente
+          const fechaExistente = new Date(existente.fecha_movimiento || 0);
+          const fechaNueva = new Date(reg.fecha_movimiento || 0);
+          if (fechaNueva > fechaExistente) {
+            agregado.set(clave, { ...reg, cantidad: existente.cantidad });
+          }
+        } else {
+          agregado.set(clave, { ...reg, cantidad: cantidadActual });
+        }
+      });
+
+      // Separar registros con cantidad positiva de los que quedaron en cero o negativo
+      const todosAgregados = Array.from(agregado.values());
+      this.itemsConsignacion.set(todosAgregados.filter(reg => reg.cantidad > 0));
+      this.itemsConsignacionCeros.set(todosAgregados.filter(reg => reg.cantidad <= 0));
+
+      this.loadingDetalle.set(false);
+
+    } catch (err) {
+      console.error('Error al cargar detalle CSG:', err);
+      this.errorDetalle.set('No se pudo cargar el detalle. Intente nuevamente.');
+      this.loadingDetalle.set(false);
+    }
   }
 
   /**
@@ -450,7 +535,21 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.vistaDetalle.set(false);
     this.productoSeleccionado.set(null);
     this.itemsConsignacion.set([]);
+    this.itemsConsignacionCeros.set([]);
+    this.itemsConsignacionRaw.set([]);
+    this.mostrarKardexOriginal.set(false);
+    this.mostrarCeros.set(false);
+    this.ordenFechaAscendente.set(false);
+    this.filtroSerie.set('');
+    this.filtroDeposito.set('');
     this.errorDetalle.set(null);
+  }
+
+  /**
+   * Alterna el orden de fecha entre ascendente y descendente en memoria.
+   */
+  toggleOrdenFecha(): void {
+    this.ordenFechaAscendente.set(!this.ordenFechaAscendente());
   }
 
   /**

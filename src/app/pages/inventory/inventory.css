@@ -553,16 +553,22 @@
     width: 46px;
     height: 46px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    background: var(--secondary-color);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 800;
     flex-shrink: 0;
-    box-shadow: 0 3px 10px rgba(29, 78, 216, 0.3);
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--secondary-color), transparent 55%);
     letter-spacing: 0.5px;
+}
+
+.inventory-container.dark-mode .detalle-icono {
+    background: color-mix(in srgb, var(--secondary-color) 55%, var(--card-bg));
+    color: color-mix(in srgb, white 85%, var(--secondary-color));
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--secondary-color), transparent 80%);
 }
 
 .detalle-producto-texto {
@@ -724,4 +730,215 @@
     background: rgba(52, 211, 153, 0.15);
     color: #6ee7b7;
     border-color: rgba(52, 211, 153, 0.3);
-}
+}
+
+/* =========================================
+   Controles de modo de vista en el detalle
+   ========================================= */
+
+/* Checkbox "Ver ceros" */
+.check-ver-ceros {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
+    border: 1px dashed var(--border-color);
+    transition: all 0.2s ease;
+}
+
+.check-ver-ceros:hover:not(.disabled) {
+    color: var(--text-color);
+    border-color: var(--primary-blue, #2563eb);
+    background: rgba(37, 99, 235, 0.06);
+}
+
+.check-ver-ceros.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.check-ver-ceros input[type="checkbox"] {
+    accent-color: var(--primary-blue, #2563eb);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+}
+
+.check-ver-ceros.disabled input[type="checkbox"] {
+    cursor: not-allowed;
+}
+
+/* Botón toggle kardex original */
+.btn-toggle-kardex {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(37, 99, 235, 0.1);
+    color: #1d4ed8;
+    border: 1px solid rgba(37, 99, 235, 0.25);
+    border-radius: 20px;
+    padding: 0.2rem 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-toggle-kardex:hover {
+    background: rgba(37, 99, 235, 0.18);
+    border-color: rgba(37, 99, 235, 0.5);
+}
+
+.btn-toggle-kardex.activo {
+    background: #1d4ed8;
+    color: white;
+    border-color: #1d4ed8;
+    box-shadow: 0 2px 6px rgba(29, 78, 216, 0.35);
+}
+
+.inventory-container.dark-mode .btn-toggle-kardex {
+    background: rgba(96, 165, 250, 0.12);
+    color: #93c5fd;
+    border-color: rgba(96, 165, 250, 0.3);
+}
+
+.inventory-container.dark-mode .btn-toggle-kardex.activo {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+/* Filas con cantidad cero (visible en modo "Ver ceros") */
+.detalle-tabla .fila-cero {
+    opacity: 0.5;
+    background: repeating-linear-gradient(45deg,
+            transparent,
+            transparent 4px,
+            rgba(239, 68, 68, 0.04) 4px,
+            rgba(239, 68, 68, 0.04) 8px);
+}
+
+.inventory-container.dark-mode .detalle-tabla .fila-cero {
+    background: repeating-linear-gradient(45deg,
+            transparent,
+            transparent 4px,
+            rgba(239, 68, 68, 0.06) 4px,
+            rgba(239, 68, 68, 0.06) 8px);
+}
+
+/* =========================================
+   Encabezado de columna ordenable por fecha
+   ========================================= */
+.th-ordenable {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: color 0.2s ease;
+}
+
+.th-ordenable:hover {
+    color: var(--primary-blue, #2563eb);
+    /* text-decoration: underline;
+    text-underline-offset: 3px; */
+}
+
+.icono-orden {
+    font-size: 0.65rem;
+    transition: transform 0.25s ease;
+    transform: rotate(0deg);
+    /* Flecha hacia abajo = descendente */
+}
+
+.icono-orden.ascendente {
+    transform: rotate(180deg);
+    /* Flecha hacia arriba = ascendente */
+}
+
+.inventory-container.dark-mode .th-ordenable:hover {
+    color: #93c5fd;
+}
+
+
+/* Contenedor que agrupa ambos filtros y los empuja a la derecha */
+.filtros-detalle-grupo {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Wrapper genérico compartido por ambos filtros (serie y depósito) */
+.filtro-detalle-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--bg-color);
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 0.2rem 0.5rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filtro-detalle-wrapper:focus-within {
+    border-color: var(--primary-blue, #2563eb);
+    border-style: solid;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.filtro-detalle-icono {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.filtro-detalle-input {
+    border: none;
+    background: transparent;
+    color: var(--text-color);
+    font-size: 0.78rem;
+    font-weight: 500;
+    width: 130px;
+    outline: none;
+}
+
+.filtro-detalle-input::placeholder {
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+.filtro-detalle-clear {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 0.1rem;
+    font-size: 0.65rem;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s ease;
+}
+
+.filtro-detalle-clear:hover {
+    color: #ef4444;
+}
+
+.inventory-container.dark-mode .filtro-detalle-wrapper {
+    background: var(--card-bg);
+}
+
+.inventory-container.dark-mode .filtro-detalle-wrapper:focus-within {
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
+    border-color: #3b82f6;
+}
+

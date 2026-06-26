@@ -78,15 +78,33 @@ export class ApiService {
 
   /**
    * Obtiene el detalle de stock ERP filtrado por código de producto y tipo de almacenaje.
+   * Incluye el parámetro top para cargar la mayor cantidad posible en una sola consulta.
    * @param codigoProducto Código del producto a consultar.
    * @param tipoAlmacenaje Tipo de almacenaje (ej: 'CONSIGNACION').
+   * @param top Límite de resultados por página (por defecto 1000).
    */
-  getStockERP(codigoProducto: string, tipoAlmacenaje: string): Observable<any> {
+  getStockERP(codigoProducto: string, tipoAlmacenaje: string, top: number = 1000): Observable<any> {
     const params = new HttpParams()
       .set('format', 'json')
       .set('codigo_producto', codigoProducto)
-      .set('tipo_almacenaje', tipoAlmacenaje);
+      .set('tipo_almacenaje', tipoAlmacenaje)
+      .set('top', top.toString());
     return this.http.get<any>(`${this.baseUrl}Stock_ERP/`, { params });
+  }
+
+  /**
+   * Obtiene una página adicional de Stock_ERP usando la URL 'next' devuelta por la API.
+   * @param urlNext URL de la siguiente página (relativa o absoluta).
+   */
+  getStockERPPagina(urlNext: string): Observable<any> {
+    let finalUrl = this.fixUrl(urlNext);
+    if (!finalUrl.startsWith('/') && !finalUrl.startsWith('http')) {
+      finalUrl = this.baseUrl + finalUrl;
+    }
+    if (!finalUrl.includes('format=json')) {
+      finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'format=json';
+    }
+    return this.http.get<any>(finalUrl);
   }
 
   /**

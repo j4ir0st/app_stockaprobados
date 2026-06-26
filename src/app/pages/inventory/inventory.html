@@ -4,130 +4,131 @@
     <!-- Vista Principal: Buscador + Tabla -->
     @if (!vistaDetalle()) {
 
-      <!-- Header Compacto: Buscador + Paginación -->
-      <div class="search-header">
-        <div class="search-box">
-          <div class="input-wrapper">
-            <i class="fas fa-search search-icon"></i>
-            <input type="text" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" (keyup.enter)="buscar()"
-              placeholder="Buscar código...">
-          </div>
-          <button class="btn-search" (click)="buscar()" [disabled]="loading()">
-            <i class="fas" [ngClass]="loading() ? 'fa-spinner fa-spin' : 'fa-search'"></i>
-          </button>
-          <button class="btn-excel" (click)="descargarExcel()" [disabled]="loadingExport()"
-            title="Descargar Todo en Excel">
-            @if (loadingExport()) {
-            <div class="progress-container">
-              <svg class="progress-svg" viewBox="0 0 36 36">
-                <path class="progress-bg"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path class="progress-fill" [style.stroke-dasharray]="exportProgress() + ', 100'"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-              </svg>
-              <span class="progress-text">{{ exportProgress() }}%</span>
-            </div>
-            } @else {
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="8" y1="13" x2="16" y2="13" />
-              <line x1="8" y1="17" x2="16" y2="17" />
-              <line x1="10" y1="9" x2="8" y2="9" />
+    <!-- Header Compacto: Buscador + Paginación -->
+    <div class="search-header">
+      <div class="search-box">
+        <div class="input-wrapper">
+          <i class="fas fa-search search-icon"></i>
+          <input type="text" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" (keyup.enter)="buscar()"
+            placeholder="Buscar código...">
+        </div>
+        <button class="btn-search" (click)="buscar()" [disabled]="loading()">
+          <i class="fas" [ngClass]="loading() ? 'fa-spinner fa-spin' : 'fa-search'"></i>
+        </button>
+        <button class="btn-excel" (click)="descargarExcel()" [disabled]="loadingExport()"
+          title="Descargar Todo en Excel">
+          @if (loadingExport()) {
+          <div class="progress-container">
+            <svg class="progress-svg" viewBox="0 0 36 36">
+              <path class="progress-bg"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <path class="progress-fill" [style.stroke-dasharray]="exportProgress() + ', 100'"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
             </svg>
-            }
-          </button>
-        </div>
-
-        <div class="pagination-controls">
-          <button class="btn-page" (click)="prevPage()" [disabled]="!prevUrl() || loading()">
-            <i class="fas fa-chevron-left"></i>
-          </button>
-          <span class="page-info">
-            <strong>{{ totalCount() }}</strong> regs. |
-            Pág. <strong>{{ paginaActual() }}</strong>
-          </span>
-          <button class="btn-page" (click)="nextPage()" [disabled]="!nextUrl() || loading()">
-            <i class="fas fa-chevron-right"></i>
-          </button>
-        </div>
+            <span class="progress-text">{{ exportProgress() }}%</span>
+          </div>
+          } @else {
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="8" y1="13" x2="16" y2="13" />
+            <line x1="8" y1="17" x2="16" y2="17" />
+            <line x1="10" y1="9" x2="8" y2="9" />
+          </svg>
+          }
+        </button>
       </div>
 
-      <!-- Título de Categoría Seleccionada -->
-      @if (tipoCategoriaTitle()) {
-      <div class="category-filter-title">
-        <i class="fas fa-layer-group"></i>
-        <h2>{{ tipoCategoriaTitle() }}</h2>
+      <div class="pagination-controls">
+        <button class="btn-page" (click)="prevPage()" [disabled]="!prevUrl() || loading()">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <span class="page-info">
+          <strong>{{ totalCount() }}</strong> regs. |
+          Pág. <strong>{{ paginaActual() }}</strong>
+        </span>
+        <button class="btn-page" (click)="nextPage()" [disabled]="!nextUrl() || loading()">
+          <i class="fas fa-chevron-right"></i>
+        </button>
       </div>
-      }
+    </div>
 
-      <div class="table-container">
-        <table class="stock-table">
-          <thead>
-            <tr>
-              <th>CATEGORÍA</th>
-              <th title="Referencia de la mercadería (Código de OFISIS)" style="cursor: help;">CÓDIGO</th>
-              <th title="Nombre de la mercadería (Descripción de OFISIS)" style="cursor: help;">DESCRIPCIÓN</th>
-              <th title="Mercadería Disponible en Almacén." style="cursor: help;">STOCK<br>DISP. </th>
-              <th title="Mercadería en proceso de revisión, nueva importación." style="cursor: help;">PRE<br>STOCK </th>
-              <th title="Mercadería en proceso de injectado y termosellado (En Inkjet)" style="cursor: help;">INKJET</th>
-              <th title="Mercadería en empaque reacondicionado." style="cursor: help;">ACOND.</th>
-              <th title="Mercadería no esterilizado de fabrica, No cuenta con empaque de fabrica." style="cursor: help;">
-                REEST.</th>
-              <th title="Mercadería con mínimos detalles en su empaque de fabrica." style="cursor: help;">OBS. </th>
-              <th title="Mercadería consignada en las entidades. Haz clic en el número para ver el detalle." style="cursor: help;">CSG. </th>
-              <th title="Mercadería Venta Sujeta a Confirmación." style="cursor: help;">VTA. </th>
-              <th title="Stock Total perteneciente a la empresa." style="cursor: help;">TOTAL </th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (item of stockItems(); track item.prod_id?.codigo) {
-            <tr [class.out-of-stock]="(item.stock_total || item.stock) <= 0">
-              <td>
-                <div class="prod-cat" [title]="item.displayCategory">{{ item.displayCategory }}</div>
-              </td>
-              <td>
-                <div class="prod-code">{{ item.prod_id?.codigo }}</div>
-              </td>
-              <td>
-                <div class="prod-desc">{{ item.prod_id?.descripcion }}</div>
-              </td>
-              <td>{{ item.disponible }}</td>
-              <td>{{ item.importacion }}</td>
-              <td>{{ item.inkjet }}</td>
-              <td>{{ item.acondicionado }}</td>
-              <td>{{ item.reesterilizado }}</td>
-              <td>{{ item.observados }}</td>
-              <!-- Celda CSG: clicable si el valor es mayor que 0 -->
-              <td>
-                @if (item.consignacion > 0) {
-                  <button class="btn-csg" (click)="verDetalleCSG(item)" title="Ver detalle de consignación">
-                    {{ item.consignacion }}
-                  </button>
-                } @else {
-                  {{ item.consignacion }}
-                }
-              </td>
-              <td>{{ item.venta_sujeta }}</td>
-              <td>
-                <span class="badge" [class.badge-danger]="(item.stock_total || item.stock) <= 0"
-                  [class.badge-warning]="(item.stock_total || item.stock) >= 1 && (item.stock_total || item.stock) <= 4"
-                  [class.badge-success]="(item.stock_total || item.stock) >= 5">
-                  {{ (item.stock_total || item.stock) < 0 ? 0 : (item.stock_total || item.stock) }} </span>
-              </td>
-            </tr>
-            }
-            @if (stockItems().length === 0 && !loading()) {
-            <tr>
-              <td colspan="12" class="no-results">
-                No se encontraron productos que coincidan con la búsqueda.
-              </td>
-            </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+    <!-- Título de Categoría Seleccionada -->
+    @if (tipoCategoriaTitle()) {
+    <div class="category-filter-title">
+      <i class="fas fa-layer-group"></i>
+      <h2>{{ tipoCategoriaTitle() }}</h2>
+    </div>
+    }
+
+    <div class="table-container">
+      <table class="stock-table">
+        <thead>
+          <tr>
+            <th>CATEGORÍA</th>
+            <th title="Referencia de la mercadería (Código de OFISIS)" style="cursor: help;">CÓDIGO</th>
+            <th title="Nombre de la mercadería (Descripción de OFISIS)" style="cursor: help;">DESCRIPCIÓN</th>
+            <th title="Mercadería Disponible en Almacén." style="cursor: help;">STOCK<br>DISP. </th>
+            <th title="Mercadería en proceso de revisión, nueva importación." style="cursor: help;">PRE<br>STOCK </th>
+            <th title="Mercadería en proceso de injectado y termosellado (En Inkjet)" style="cursor: help;">INKJET</th>
+            <th title="Mercadería en empaque reacondicionado." style="cursor: help;">ACOND.</th>
+            <th title="Mercadería no esterilizado de fabrica, No cuenta con empaque de fabrica." style="cursor: help;">
+              REEST.</th>
+            <th title="Mercadería con mínimos detalles en su empaque de fabrica." style="cursor: help;">OBS. </th>
+            <th title="Mercadería consignada en las entidades. Haz clic en el número para ver el detalle."
+              style="cursor: help;">CSG. </th>
+            <th title="Mercadería Venta Sujeta a Confirmación." style="cursor: help;">VTA. </th>
+            <th title="Stock Total perteneciente a la empresa." style="cursor: help;">TOTAL </th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of stockItems(); track item.prod_id?.codigo) {
+          <tr [class.out-of-stock]="(item.stock_total || item.stock) <= 0">
+            <td>
+              <div class="prod-cat" [title]="item.displayCategory">{{ item.displayCategory }}</div>
+            </td>
+            <td>
+              <div class="prod-code">{{ item.prod_id?.codigo }}</div>
+            </td>
+            <td>
+              <div class="prod-desc">{{ item.prod_id?.descripcion }}</div>
+            </td>
+            <td>{{ item.disponible }}</td>
+            <td>{{ item.importacion }}</td>
+            <td>{{ item.inkjet }}</td>
+            <td>{{ item.acondicionado }}</td>
+            <td>{{ item.reesterilizado }}</td>
+            <td>{{ item.observados }}</td>
+            <!-- Celda CSG: clicable si el valor es mayor que 0 -->
+            <td>
+              @if (item.consignacion > 0) {
+              <button class="btn-csg" (click)="verDetalleCSG(item)" title="Ver detalle de consignación">
+                {{ item.consignacion }}
+              </button>
+              } @else {
+              {{ item.consignacion }}
+              }
+            </td>
+            <td>{{ item.venta_sujeta }}</td>
+            <td>
+              <span class="badge" [class.badge-danger]="(item.stock_total || item.stock) <= 0"
+                [class.badge-warning]="(item.stock_total || item.stock) >= 1 && (item.stock_total || item.stock) <= 4"
+                [class.badge-success]="(item.stock_total || item.stock) >= 5">
+                {{ (item.stock_total || item.stock) < 0 ? 0 : (item.stock_total || item.stock) }} </span>
+            </td>
+          </tr>
+          }
+          @if (stockItems().length === 0 && !loading()) {
+          <tr>
+            <td colspan="12" class="no-results">
+              No se encontraron productos que coincidan con la búsqueda.
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
 
     }
 
@@ -144,7 +145,7 @@
 
         <div class="detalle-producto-info">
           <div class="detalle-icono">
-            {{ productoSeleccionado()?.prod_id?.codigo?.substring(0, 2)?.toUpperCase() }}
+            {{ productoSeleccionado()?.consignacion }}
           </div>
           <div class="detalle-producto-texto">
             <h2 class="detalle-codigo">{{ productoSeleccionado()?.prod_id?.codigo }}</h2>
@@ -156,9 +157,57 @@
       <!-- Título de la sección -->
       <div class="detalle-titulo-seccion">
         <i class="fas fa-boxes"></i>
-        <h3>Detalle de Consignación</h3>
+        <h3>{{ tipoCategoriaTitle() ? tipoCategoriaTitle() + ' - Detalle de Consignación' : 'Detalle de Consignación' }}</h3>
         @if (!loadingDetalle()) {
-          <span class="detalle-count-badge">{{ itemsConsignacion().length }} registro(s)</span>
+        <!-- Filtros de búsqueda en detalle (serie y depósito) -->
+        <div class="filtros-detalle-grupo">
+          <!-- Filtro por número de serie -->
+          <div class="filtro-detalle-wrapper">
+            <i class="fas fa-barcode filtro-detalle-icono"></i>
+            <input
+              type="text"
+              class="filtro-detalle-input"
+              [ngModel]="filtroSerie()"
+              (ngModelChange)="filtroSerie.set($event)"
+              placeholder="Filtrar serie..."
+              title="Filtrar registros por número de serie">
+            @if (filtroSerie()) {
+            <button class="filtro-detalle-clear" (click)="filtroSerie.set('')" title="Limpiar filtro">
+              <i class="fas fa-times"></i>
+            </button>
+            }
+          </div>
+          <!-- Filtro por nombre de depósito -->
+          <div class="filtro-detalle-wrapper">
+            <i class="fas fa-map-marker-alt filtro-detalle-icono"></i>
+            <input
+              type="text"
+              class="filtro-detalle-input"
+              [ngModel]="filtroDeposito()"
+              (ngModelChange)="filtroDeposito.set($event)"
+              placeholder="Filtrar depósito..."
+              title="Filtrar registros por nombre de depósito">
+            @if (filtroDeposito()) {
+            <button class="filtro-detalle-clear" (click)="filtroDeposito.set('')" title="Limpiar filtro">
+              <i class="fas fa-times"></i>
+            </button>
+            }
+          </div>
+        </div>
+        <!-- Checkbox para ver los registros que quedaron en cero -->
+        <label class="check-ver-ceros" [class.disabled]="mostrarKardexOriginal()"
+          title="Mostrar registros que quedaron en cero tras la agrupación">
+          <input type="checkbox" [checked]="mostrarCeros()" (change)="mostrarCeros.set(!mostrarCeros())"
+            [disabled]="mostrarKardexOriginal()">
+          <span>Ver ceros</span>
+        </label>
+        <!-- Botón que alterna entre vista agrupada y kardex original -->
+        <button class="btn-toggle-kardex" (click)="mostrarKardexOriginal.set(!mostrarKardexOriginal())"
+          [class.activo]="mostrarKardexOriginal()"
+          [title]="mostrarKardexOriginal() ? 'Ver resumen agrupado' : 'Ver kardex original sin agrupar'">
+          <i class="fas" [ngClass]="mostrarKardexOriginal() ? 'fa-layer-group' : 'fa-list'"></i>
+          {{ itemsVisibles().length }} registro(s)
+        </button>
         }
       </div>
 
@@ -189,14 +238,23 @@
               <th>N° Serie</th>
               <th>Descripción</th>
               <th>Tipo Almacenaje</th>
-              <th>Fecha Movimiento</th>
+              @if (mostrarKardexOriginal()) {
+              <th>Documento</th>
+              }
+              <th>
+                <span class="th-ordenable" (click)="toggleOrdenFecha()"
+                  [title]="'Al dar click se ordena de manera ascendente o descendente (' + (ordenFechaAscendente() ? 'Ascendente' : 'Descendente') + ')'">
+                  Fecha Movimiento
+                  <i class="fas fa-arrow-down icono-orden" [class.ascendente]="ordenFechaAscendente()"></i>
+                </span>
+              </th>
               <th>Depósito</th>
               <th>Cantidad</th>
             </tr>
           </thead>
           <tbody>
-            @for (reg of itemsConsignacion(); track reg.numero_serie || $index) {
-            <tr>
+            @for (reg of itemsVisibles(); track $index) {
+            <tr [class.fila-cero]="reg.cantidad == 0">
               <td>
                 <span class="badge-tipo">{{ reg.tipo_producto }}</span>
               </td>
@@ -212,6 +270,9 @@
               <td>
                 <span class="badge-almacenaje">{{ reg.tipo_almacenaje }}</span>
               </td>
+              @if (mostrarKardexOriginal()) {
+              <td>{{ reg.documento || '—' }}</td>
+              }
               <td class="fecha-celda">{{ reg.fecha_movimiento | date:'dd/MM/yyyy' }}</td>
               <td>{{ reg.nombre_deposito }}</td>
               <td class="cantidad-celda">
@@ -221,7 +282,7 @@
               </td>
             </tr>
             }
-            @if (itemsConsignacion().length === 0) {
+            @if (itemsVisibles().length === 0) {
             <tr>
               <td colspan="8" class="no-results">
                 No se encontraron registros de consignación para este producto.
