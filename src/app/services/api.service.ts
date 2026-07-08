@@ -93,6 +93,26 @@ export class ApiService {
   }
 
   /**
+   * Obtiene todos los registros de Stock_ERP para un código de producto sin filtro de tipo de almacenaje.
+   * Usado para vistas que requieren todos los movimientos (ej: Equipos VAC).
+   * @param codigoProducto Código del producto a consultar.
+   * @param top Límite de resultados por página (por defecto 1000).
+   * @param soloGuias Si es verdadero, agrega el filtro solo_guias=true.
+   */
+  getStockERPTodos(codigoProducto: string, top: number = 1000, soloGuias: boolean = false): Observable<any> {
+    let params = new HttpParams()
+      .set('format', 'json')
+      .set('codigo_producto', codigoProducto)
+      .set('top', top.toString());
+    
+    if (soloGuias) {
+      params = params.set('solo_guias', 'true');
+    }
+    
+    return this.http.get<any>(`${this.baseUrl}Stock_ERP/`, { params });
+  }
+
+  /**
    * Obtiene una página adicional de Stock_ERP usando la URL 'next' devuelta por la API.
    * @param urlNext URL de la siguiente página (relativa o absoluta).
    */

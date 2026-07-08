@@ -40,6 +40,12 @@ export class InventoryComponent implements OnInit, OnDestroy {
   totalCount = signal(0);
   paginaActual = signal(1);
   loadingExport = signal(false);
+
+  // Calcula dinámicamente el total de páginas en base al count y al parámetro top de la URL
+  totalPaginas = computed(() => {
+    const top = this.obtenerTopDeUrl();
+    return Math.ceil(this.totalCount() / top) || 1;
+  });
   exportProgress = signal(0);
 
   // Título para filtros específicos (Traumatología)
@@ -47,6 +53,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   // Almacena la query de filtros activos (categoría, familia, tipo) para exportación y búsqueda
   currentFiltersQuery = signal<string>('');
+
+  // Indica si el modo actual es de códigos fijos (ej: Equipos VAC) — habilita clic en toda la fila
+  modoCodigosFijos = signal(false);
 
   // Estado de la vista de detalle CSG
   vistaDetalle = signal(false);
@@ -119,8 +128,25 @@ export class InventoryComponent implements OnInit, OnDestroy {
       const familia = params['prod_id__cat_id__familia_id__nombre'];
       const familiaTipo = params['prod_id__cat_id__familia_id__tipo'];
       const buscarParam = params['buscar']; // Nuevo: chequear si viene búsqueda en URL
+      const typeKey = params['typeKey'];    // Nuevo: chequear si es modo de códigos fijos
 
       let filterQuery = '';
+
+      // --- Modo de códigos fijos (ej: Equipos VAC) ---
+      if (typeKey) {
+        const codigosFijos = this.configService.getCodigosFijos(typeKey);
+        if (codigosFijos) {
+          this.modoCodigosFijos.set(true);
+          const label = this.configService.getMenuLabelByType(typeKey);
+          this.tipoCategoriaTitle.set(label);
+          this.currentFiltersQuery.set('');
+          this.cargarStockCodigosFijos(codigosFijos);
+          return;
+        }
+      }
+
+      // Modo normal: limpiar estado de códigos fijos si se navega a otra sección
+      this.modoCodigosFijos.set(false);
 
       // Construir la query acumulando filtros si están presentes
       if (tipoCategoria) {
@@ -171,6 +197,34 @@ export class InventoryComponent implements OnInit, OnDestroy {
     const term = this.searchTerm();
     const filters = this.currentFiltersQuery();
     return (term ? `&buscar=${encodeURIComponent(term)}` : '') + filters;
+  }
+
+  /**
+   * Carga en paralelo el stock de una lista de códigos fijos (ej: Equipos VAC).
+   * Une los resultados de todas las búsquedas y los procesa como si fueran una sola respuesta.
+   * @param codigos Lista de códigos a consultar.
+   */
+  async cargarStockCodigosFijos(codigos: string[]): Promise<void> {
+    this.loading.set(true);
+    this.stockItems.set([]);
+    this.paginaActual.set(1);
+
+    try {
+      // Lanzar una consulta por cada código en paralelo
+      const promesas = codigos.map(codigo =>
+        firstValueFrom(this.apiService.getStockAprobado(`&buscar=${encodeURIComponent(codigo)}`))
+      );
+      const respuestas = await Promise.all(promesas);
+
+      // Unir todos los resultados en un solo array plano
+      const todosLosResultados = respuestas.flatMap((resp: any) => resp?.results || (Array.isArray(resp) ? resp : []));
+
+      // Reutilizar el procesador de resultados con la estructura esperada
+      this.procesarResultados({ results: todosLosResultados, count: todosLosResultados.length, next: null, previous: null });
+    } catch (err) {
+      console.error('Error al cargar stock por códigos fijos:', err);
+      this.loading.set(false);
+    }
   }
 
   /**
@@ -529,6 +583,106 @@ export class InventoryComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Abre la tarjeta de detalle para ítems de códigos fijos (ej: Equipos VAC).
+   * Consulta todos los movimientos de Stock_ERP sin filtro de tipo de almacenaje.
+   * @param item Registro del inventario a detallar.
+   */
+  async verDetalleTodos(item: any): Promise<void> {
+    const codigo = item.prod_id?.codigo;
+    if (!codigo) return;
+
+    this.productoSeleccionado.set(item);
+    this.itemsConsignacion.set([]);
+    this.itemsConsignacionCeros.set([]);
+    this.itemsConsignacionRaw.set([]);
+    this.mostrarKardexOriginal.set(false);
+    this.mostrarCeros.set(false);
+    this.ordenFechaAscendente.set(false);
+    this.filtroSerie.set('');
+    this.filtroDeposito.set('');
+    this.errorDetalle.set(null);
+    this.loadingDetalle.set(true);
+    this.vistaDetalle.set(true);
+
+    try {
+      const top = 1000;
+
+      // Primera consulta sin filtro de tipo de almacenaje y con solo_guias=true
+      const primeraRespuesta: any = await firstValueFrom(
+        this.apiService.getStockERPTodos(codigo, top, true)
+      );
+
+      if (!primeraRespuesta) throw new Error('Sin respuesta del servidor');
+
+      let todosLosResultados = [...(primeraRespuesta.results || [])];
+
+      // Si hay más páginas, cargarlas todas en paralelo
+      if (primeraRespuesta.next) {
+        const totalRegistros = primeraRespuesta.count || 0;
+        const totalPaginas = Math.ceil(totalRegistros / top);
+        console.log(`Stock_ERP VAC: ${totalRegistros} registros en ${totalPaginas} páginas. Cargando en paralelo...`);
+
+        const promesas: Promise<any>[] = [];
+        for (let pagina = 2; pagina <= totalPaginas; pagina++) {
+          const urlPagina = `Stock_ERP/?page=${pagina}&top=${top}&codigo_producto=${encodeURIComponent(codigo)}&solo_guias=true`;
+          promesas.push(firstValueFrom(this.apiService.getStockERPPagina(urlPagina)));
+        }
+
+        const respuestasPaginadas = await Promise.all(promesas);
+        respuestasPaginadas.forEach((resp: any) => {
+          todosLosResultados = [...todosLosResultados, ...(resp?.results || [])];
+        });
+      }
+
+      console.log(`Stock_ERP VAC: ${todosLosResultados.length} registros totales cargados.`);
+
+      // Guardar el kardex original con cantidades como enteros
+      this.itemsConsignacionRaw.set(
+        todosLosResultados.map((reg: any) => ({ ...reg, cantidad: Math.round(reg.cantidad || 0) }))
+      );
+
+      // Agregar registros por numero_serie (conservando el último movimiento de guía)
+      const agregado = new Map<string, any>();
+
+      todosLosResultados.forEach((reg: any) => {
+        const clave = reg.numero_serie
+          ? reg.numero_serie.trim()
+          : `__sin_serie_${Math.random()}`;
+        const cantidadActual = Math.round(reg.cantidad || 0);
+
+        if (agregado.has(clave)) {
+          const existente = agregado.get(clave);
+          const fechaExistente = new Date(existente.fecha_movimiento || 0);
+          const fechaNueva = new Date(reg.fecha_movimiento || 0);
+          if (fechaNueva > fechaExistente) {
+            agregado.set(clave, { ...reg, cantidad: cantidadActual });
+          }
+        } else {
+          agregado.set(clave, { ...reg, cantidad: cantidadActual });
+        }
+      });
+
+      // Separar registros de acuerdo al modo
+      const todosAgregados = Array.from(agregado.values());
+      if (this.modoCodigosFijos()) {
+        // En la vista VAC mostramos todos los últimos movimientos de guía de cada número de serie
+        this.itemsConsignacion.set(todosAgregados);
+        this.itemsConsignacionCeros.set([]);
+      } else {
+        this.itemsConsignacion.set(todosAgregados.filter(reg => reg.cantidad > 0));
+        this.itemsConsignacionCeros.set(todosAgregados.filter(reg => reg.cantidad <= 0));
+      }
+
+      this.loadingDetalle.set(false);
+
+    } catch (err) {
+      console.error('Error al cargar detalle VAC:', err);
+      this.errorDetalle.set('No se pudo cargar el detalle. Intente nuevamente.');
+      this.loadingDetalle.set(false);
+    }
+  }
+
+  /**
    * Regresa a la vista principal de la tabla de inventario.
    */
   regresarATabla(): void {
@@ -548,6 +702,48 @@ export class InventoryComponent implements OnInit, OnDestroy {
   /**
    * Alterna el orden de fecha entre ascendente y descendente en memoria.
    */
+  /**
+   * Extrae el parámetro top de la URL actual de paginación.
+   * Si no se encuentra, retorna 60 como valor predeterminado de la API.
+   */
+  private obtenerTopDeUrl(): number {
+    const next = this.nextUrl();
+    const prev = this.prevUrl();
+    const urlRef = next || prev || '';
+    const match = urlRef.match(/[?&]top=(\d+)/);
+    return match ? parseInt(match[1], 10) : 60;
+  }
+
+  /**
+   * Retorna la clase CSS correspondiente al tipo de almacenaje para colorear el badge.
+   * @param tipoAlmacenaje Valor del campo tipo_almacenaje del registro.
+   */
+  obtenerClaseAlmacenaje(tipoAlmacenaje: string): string {
+    const tipo = (tipoAlmacenaje || '').toUpperCase().trim();
+    const mapaClases: Record<string, string> = {
+      'STOCK DISPONIBLE': 'almacenaje-disponible',
+      'MUESTRA': 'almacenaje-muestra',
+      'PRODUCTOS EN ACONDICIONADO': 'almacenaje-acondicionado',
+      'BAJA': 'almacenaje-baja',
+      'DEVOLUCION EN PROCESO': 'almacenaje-devolucion',
+      'INKJET': 'almacenaje-inkjet',
+      'IMPORTACION EN PROCESO DE APROBACION': 'almacenaje-importacion',
+      'PRESTAMO': 'almacenaje-prestamo',
+      'COMPRA LOCAL EN PROCESO DE REVISION': 'almacenaje-compra-local',
+      'PROVISIONAL': 'almacenaje-provisional',
+      'PRODUCTO REESTERILIZADO': 'almacenaje-reesterilizado',
+      'CONSUMO INTERNO': 'almacenaje-consumo',
+      'FUERA DEL STOCK': 'almacenaje-fuera-stock',
+      'PRODUCTOS OBSERVADOS POR CALIDAD': 'almacenaje-observados',
+      'PRODUCTOS POR REGULARIZAR ATENCIONES': 'almacenaje-reg-atenciones',
+      'VTA. SUJET. A CONF(MER)/BIENES DE USO': 'almacenaje-vta-sujeta',
+      'RESERVADO PARA OC': 'almacenaje-reservado',
+      'CONSIGNACION': 'almacenaje-consignacion',
+      'PRODUCTOS POR REGULARIZAR FACTURACION': 'almacenaje-reg-facturacion',
+    };
+    return mapaClases[tipo] || 'almacenaje-default';
+  }
+
   toggleOrdenFecha(): void {
     this.ordenFechaAscendente.set(!this.ordenFechaAscendente());
   }
@@ -591,4 +787,49 @@ export class InventoryComponent implements OnInit, OnDestroy {
       }
     ]);
   }
+
+  /**
+   * Calcula los días transcurridos desde la fecha de movimiento hasta el día de hoy.
+   * @param fechaMovimiento Fecha de movimiento.
+   */
+  calcularDiasEmpleados(fechaMovimiento: string | Date | null | undefined): number {
+    if (!fechaMovimiento) return 0;
+    
+    let fechaMov: Date;
+    if (typeof fechaMovimiento === 'string') {
+      const fechaStr = fechaMovimiento.includes('T') ? fechaMovimiento.split('T')[0] : fechaMovimiento;
+      const partes = fechaStr.includes('-') ? fechaStr.split('-') : fechaStr.split('/');
+      if (partes.length === 3) {
+        const part0 = parseInt(partes[0], 10);
+        const part1 = parseInt(partes[1], 10) - 1;
+        const part2 = parseInt(partes[2], 10);
+        if (part0 > 1000) {
+          fechaMov = new Date(part0, part1, part2);
+        } else {
+          fechaMov = new Date(part2, part1, part0);
+        }
+      } else {
+        fechaMov = new Date(fechaMovimiento);
+      }
+    } else {
+      fechaMov = new Date(fechaMovimiento);
+    }
+
+    const hoy = new Date();
+    fechaMov.setHours(0, 0, 0, 0);
+    hoy.setHours(0, 0, 0, 0);
+    
+    const diffTime = hoy.getTime() - fechaMov.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays < 0 ? 0 : diffDays;
+  }
+
+  /**
+   * Obtiene la cantidad en valor absoluto (positivo).
+   * @param cantidad Cantidad numérica.
+   */
+  obtenerCantidadAbsoluta(cantidad: number | null | undefined): number {
+    return Math.abs(cantidad || 0);
+  }
 }
+

@@ -50,6 +50,12 @@ export class SidebarComponent {
       const hasFilters = Object.keys(params).length > 0;
       this.isStockGeneralActive.set(!hasFilters);
 
+      // Caso especial: typeKey en la URL (ej: Equipos VAC con códigos fijos)
+      if (params['typeKey']) {
+        this.activeTypeKey.set(params['typeKey']);
+        return;
+      }
+
       if (hasFilters) {
         // Buscar a qué familia pertenece el filtro aplicado
         const familiaNombre = params['prod_id__cat_id__familia_id__nombre'];
@@ -180,6 +186,13 @@ export class SidebarComponent {
     if (item.label === 'Stock General') {
       this.selectedTypeKey.set(null);
       this.router.navigate(['/inventory'], { queryParams: {} });
+      return;
+    }
+
+    // Para ítems con códigos fijos (ej: VAC), navegar directo sin abrir el flyout
+    if (this.configService.getCodigosFijos(item.typeKey)) {
+      this.selectedTypeKey.set(null);
+      this.router.navigate(['/inventory'], { queryParams: { typeKey: item.typeKey } });
       return;
     }
 

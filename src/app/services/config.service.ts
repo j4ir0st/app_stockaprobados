@@ -26,7 +26,20 @@ export class ConfigService {
     { label: 'Traumatología', route: '/trauma', icon: 'assets/images/Traumatología-icon.png', isAsset: true, typeKey: 'TR' },
     { label: 'Neurocirugía', route: '/neuro', icon: 'assets/images/Neurocirugía-icon.png', isAsset: true, typeKey: 'NR' },
     { label: 'T. de Sueño y Apnea', route: '/sueno', icon: 'assets/images/Terapia de Sueño y Apnea-icon.png', isAsset: true, typeKey: 'TS' },
+    { label: 'Equipos VAC', route: '/vac', icon: 'assets/images/machine-press-industrial.png', isAsset: true, typeKey: 'VAC' },
   ];
+
+  // Mapa de códigos fijos asociados a categorías especiales (sin familias en la API)
+  private readonly codigosFijosPorTipo: Record<string, string[]> = {
+    'VAC': ['A4-S0002', 'A4-S0003'],
+  };
+
+  /**
+   * Devuelve la lista de códigos fijos para un typeKey especial, o null si no aplica.
+   */
+  getCodigosFijos(typeKey: string): string[] | null {
+    return this.codigosFijosPorTipo[typeKey] ?? null;
+  }
 
   // Mapa de usuarios con acceso restringido a opciones específicas del menú
   private readonly restriccionesPorUsuario: Record<string, string[]> = {
