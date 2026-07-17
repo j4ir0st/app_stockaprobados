@@ -66,6 +66,17 @@
       <table class="stock-table">
         <thead>
           <tr>
+            @if (modoCodigosFijos()) {
+            <th>CATEGORÍA</th>
+            <th>CÓDIGO</th>
+            <th>DESCRIPCIÓN</th>
+            <th title="Stock para Cx" style="cursor: help;">STOCK PARA CX</th>
+            <th title="Pendiente de Revisión" style="cursor: help;">PEND. REVISIÓN</th>
+            <th title="Ingeniería - 6to Piso" style="cursor: help;">INGENIERÍA - 6TO PISO</th>
+            <th title="Nueva Importación" style="cursor: help;">NUEVA IMPORTACIÓN</th>
+            <th title="Internados" style="cursor: help;">INTERNADOS</th>
+            <th title="Stock Total perteneciente a la empresa." style="cursor: help;">TOTAL</th>
+            } @else {
             <th>CATEGORÍA</th>
             <th title="Referencia de la mercadería (Código de OFISIS)" style="cursor: help;">CÓDIGO</th>
             <th title="Nombre de la mercadería (Descripción de OFISIS)" style="cursor: help;">DESCRIPCIÓN</th>
@@ -80,6 +91,7 @@
               style="cursor: help;">CSG. </th>
             <th title="Mercadería Venta Sujeta a Confirmación." style="cursor: help;">VTA. </th>
             <th title="Stock Total perteneciente a la empresa." style="cursor: help;">TOTAL </th>
+            }
           </tr>
         </thead>
         <tbody>
@@ -88,6 +100,28 @@
               [class.fila-clickable]="modoCodigosFijos()"
               (click)="modoCodigosFijos() ? verDetalleTodos(item) : null"
               [title]="modoCodigosFijos() ? 'Ver detalle de ' + item.prod_id?.codigo : ''">
+            @if (modoCodigosFijos()) {
+            <td>
+              <div class="prod-cat">{{ item.displayCategory }}</div>
+            </td>
+            <td>
+              <div class="prod-code">{{ item.prod_id?.codigo }}</div>
+            </td>
+            <td>
+              <div class="prod-desc">{{ item.prod_id?.descripcion }}</div>
+            </td>
+            <td>{{ item.stock_cx }}</td>
+            <td>{{ item.pendiente_revision }}</td>
+            <td>{{ item.ingenieria }}</td>
+            <td>{{ item.nueva_importacion }}</td>
+            <td>{{ item.internados }}</td>
+            <td>
+              <span class="badge" [class.badge-danger]="(item.stock_total || item.stock) <= 0"
+                [class.badge-warning]="(item.stock_total || item.stock) >= 1 && (item.stock_total || item.stock) <= 4"
+                [class.badge-success]="(item.stock_total || item.stock) >= 5">
+                {{ (item.stock_total || item.stock) < 0 ? 0 : (item.stock_total || item.stock) }} </span>
+            </td>
+            } @else {
             <td>
               <div class="prod-cat" [title]="item.displayCategory">{{ item.displayCategory }}</div>
             </td>
@@ -120,11 +154,12 @@
                 [class.badge-success]="(item.stock_total || item.stock) >= 5">
                 {{ (item.stock_total || item.stock) < 0 ? 0 : (item.stock_total || item.stock) }} </span>
             </td>
+            }
           </tr>
           }
           @if (stockItems().length === 0 && !loading()) {
           <tr>
-            <td colspan="12" class="no-results">
+            <td [attr.colspan]="modoCodigosFijos() ? 9 : 12" class="no-results">
               No se encontraron productos que coincidan con la búsqueda.
             </td>
           </tr>
@@ -148,7 +183,7 @@
 
         <div class="detalle-producto-info">
           <div class="detalle-icono">
-            {{ modoCodigosFijos() ? (productoSeleccionado()?.stock_total || productoSeleccionado()?.stock || 0) : productoSeleccionado()?.consignacion }}
+            {{ obtenerSumaIconoDetalle() }}
           </div>
           <div class="detalle-producto-texto">
             <h2 class="detalle-codigo">{{ productoSeleccionado()?.prod_id?.codigo }}</h2>
@@ -256,8 +291,11 @@
                   <i class="fas fa-arrow-down icono-orden" [class.ascendente]="ordenFechaAscendente()"></i>
                 </span>
               </th>
-              @if (!modoCodigosFijos()) {
+              @if (!modoCodigosFijos() || mostrarKardexOriginal()) {
               <th>Depósito</th>
+              }
+              @if (modoCodigosFijos() && mostrarKardexOriginal()) {
+              <th>Sector</th>
               }
               <th>Días Empleados</th>
               <th>Cantidad</th>
@@ -282,10 +320,13 @@
               <td>{{ reg.cliente || '—' }}</td>
               <td>{{ reg.paciente || '—' }}</td>
               }
-              <td>{{ reg.documento || '—' }}</td>
+              <td [title]="reg.empresa_nombre || ''">{{ reg.documento || '—' }}</td>
               <td class="fecha-celda">{{ reg.fecha_movimiento | date:'dd/MM/yyyy' }}</td>
-              @if (!modoCodigosFijos()) {
+              @if (!modoCodigosFijos() || mostrarKardexOriginal()) {
               <td>{{ reg.nombre_deposito }}</td>
+              }
+              @if (modoCodigosFijos() && mostrarKardexOriginal()) {
+              <td>{{ reg.sector || '—' }}</td>
               }
               <td>
                 <span class="dias-empleados-valor">
@@ -308,7 +349,7 @@
             }
             @if (itemsVisibles().length === 0) {
             <tr>
-              <td [attr.colspan]="modoCodigosFijos() ? (mostrarKardexOriginal() ? 10 : 9) : 8" class="no-results">
+              <td [attr.colspan]="modoCodigosFijos() ? (mostrarKardexOriginal() ? 12 : 9) : 8" class="no-results">
                 {{ modoCodigosFijos() ? 'No se encontraron registros de guías para este producto.' : 'No se encontraron registros de consignación para este producto.' }}
               </td>
             </tr>

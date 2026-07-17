@@ -33,6 +33,11 @@ server {
         rewrite ^/api-proxy/(.*)$ /$1 break;
     }
 
+    location /EquiposVAC {
+        proxy_pass ${API_URL};
+        proxy_set_header Host $host;
+    }
+
     # Servir la aplicación
     location / {
         try_files $uri $uri/ /index.html;

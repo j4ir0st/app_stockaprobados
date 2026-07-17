@@ -26,7 +26,7 @@ export class ConfigService {
     { label: 'Traumatología', route: '/trauma', icon: 'assets/images/Traumatología-icon.png', isAsset: true, typeKey: 'TR' },
     { label: 'Neurocirugía', route: '/neuro', icon: 'assets/images/Neurocirugía-icon.png', isAsset: true, typeKey: 'NR' },
     { label: 'T. de Sueño y Apnea', route: '/sueno', icon: 'assets/images/Terapia de Sueño y Apnea-icon.png', isAsset: true, typeKey: 'TS' },
-    { label: 'Equipos VAC', route: '/vac', icon: 'assets/images/machine-press-industrial.png', isAsset: true, typeKey: 'VAC' },
+    { label: 'Equipos VAC', route: '/vac', icon: 'assets/images/equipoVAC icono.png', isAsset: true, typeKey: 'VAC' },
   ];
 
   // Mapa de códigos fijos asociados a categorías especiales (sin familias en la API)

@@ -764,6 +764,18 @@
     border-color: rgba(251, 191, 36, 0.3);
 }
 
+/* 5.5. INGENIERIA (Teal Verde) */
+.badge-almacenaje.almacenaje-ingenieria {
+    background: rgba(13, 148, 136, 0.12);
+    color: #115e59;
+    border-color: rgba(13, 148, 136, 0.25);
+}
+.inventory-container.dark-mode .badge-almacenaje.almacenaje-ingenieria {
+    background: rgba(45, 212, 191, 0.15);
+    color: #99f6e4;
+    border-color: rgba(45, 212, 191, 0.3);
+}
+
 /* 6. INKJET (Teal/Cyan) */
 .badge-almacenaje.almacenaje-inkjet {
     background: rgba(6, 182, 212, 0.12);

@@ -113,6 +113,17 @@ export class ApiService {
   }
 
   /**
+   * Obtiene todos los registros de EquiposVAC con soporte para límite de resultados.
+   * @param top Límite de resultados (por defecto 1000 para cargar todo en una sola consulta).
+   */
+  getEquiposVAC(top: number = 1000): Observable<any> {
+    const params = new HttpParams()
+      .set('format', 'json')
+      .set('top', top.toString());
+    return this.http.get<any>(`${this.baseUrl}EquiposVAC/`, { params });
+  }
+
+  /**
    * Obtiene una página adicional de Stock_ERP usando la URL 'next' devuelta por la API.
    * @param urlNext URL de la siguiente página (relativa o absoluta).
    */
