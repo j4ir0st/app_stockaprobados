@@ -9,6 +9,7 @@ import { ConfigService } from '../../services/config.service';
 import { ApiService } from '../../services/api.service';
 import { ThemeService } from '../../services/theme.service';
 import { RefreshService } from '../../services/refresh.service';
+import { AuthService } from '../../services/auth.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -24,6 +25,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   public themeService = inject(ThemeService);
   private refreshService = inject(RefreshService);
   private route = inject(ActivatedRoute);
+  private authService = inject(AuthService);
 
   private suscripcionRefresco?: Subscription;
 
@@ -64,6 +66,74 @@ export class InventoryComponent implements OnInit, OnDestroy {
   itemsConsignacionCeros = signal<any[]>([]);  // Registros agregados que quedaron en cero
   itemsConsignacionRaw = signal<any[]>([]);    // Registros originales del kardex sin procesar
   equiposVACData = signal<any[]>([]);          // Registros consolidados de Equipos VAC de la API
+  mostrarTablaActualVAC = signal(false);       // Controla si se visualiza la tabla principal en Equipos VAC
+
+  // Permite verificar si el usuario tiene permiso para ver la tabla actual de Equipos VAC
+  puedeVerTablaActualVAC = computed(() => {
+    const usuario = this.authService.currentUser();
+    if (!usuario) return false;
+    const area = usuario.area_id || '';
+    return area === 'Atenciones' || area === 'Desarrollo Software';
+  });
+
+  ordenResumenColumna = signal<'cantidad' | 'representante'>('cantidad');
+  ordenResumenDireccion = signal<'asc' | 'desc'>('desc'); // default: de mayor a menor (desc)
+
+  toggleOrdenResumen(columna: 'cantidad' | 'representante'): void {
+    if (this.ordenResumenColumna() === columna) {
+      this.ordenResumenDireccion.set(this.ordenResumenDireccion() === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.ordenResumenColumna.set(columna);
+      this.ordenResumenDireccion.set(columna === 'cantidad' ? 'desc' : 'asc');
+    }
+  }
+
+  // Agrupa los equipos consolidados de VAC por representante (solo los "internados")
+  resumenEquiposVAC = computed(() => {
+    if (!this.modoCodigosFijos()) {
+      return [];
+    }
+
+    const mapa = new Map<string, number>();
+    const todosLosEquipos = this.equiposVACData();
+
+    todosLosEquipos.forEach((reg: any) => {
+      const cantidad = Math.round(reg.cantidad || 0);
+      if (cantidad > 0) {
+        const deposito = (reg.deposito || '').trim();
+        if (deposito.endsWith('-VS') || deposito.endsWith('-C')) {
+          const representante = (reg.representante || '').trim() || '—';
+          const acumulado = mapa.get(representante) || 0;
+          mapa.set(representante, acumulado + cantidad);
+        }
+      }
+    });
+
+    const resultado = Array.from(mapa.entries()).map(([representante, cantidad]) => ({
+      representante,
+      cantidad
+    }));
+
+    // Ordenar en memoria según columna y dirección
+    const col = this.ordenResumenColumna();
+    const dir = this.ordenResumenDireccion();
+
+    resultado.sort((a: any, b: any) => {
+      if (col === 'cantidad') {
+        return dir === 'desc' ? b.cantidad - a.cantidad : a.cantidad - b.cantidad;
+      } else {
+        const comp = a.representante.localeCompare(b.representante);
+        return dir === 'desc' ? -comp : comp;
+      }
+    });
+
+    return resultado;
+  });
+
+  // Calcula el total general de los equipos asignados a los representantes
+  totalEquiposVAC = computed(() => {
+    return this.resumenEquiposVAC().reduce((acumulado, fila) => acumulado + fila.cantidad, 0);
+  });
   loadingDetalle = signal(false);
   errorDetalle = signal<string | null>(null);
 
@@ -73,6 +143,12 @@ export class InventoryComponent implements OnInit, OnDestroy {
   ordenFechaAscendente = signal(false);   // Orden de fecha: false = descendente (por defecto, igual que API)
   filtroSerie = signal('');               // Filtro de texto por número de serie
   filtroDeposito = signal('');            // Filtro de texto por nombre de depósito
+  filtroRepresentante = signal('');       // Filtro de texto por representante
+  filtroDisponibilidad = signal('');      // Filtro de texto por disponibilidad (sólo para Equipos VAC)
+  mostrarCodigoProductoDetalle = signal(true); // Controla la visibilidad de la columna Código Producto en detalle
+  tiempoRestanteActualizacion = signal(60); // Segundos restantes para la actualización automática de Equipos VAC
+  private intervaloActualizacion: any;    // Referencia al intervalo del temporizador
+
 
   // Items a mostrar según el modo activo, con filtrado y ordenamiento en memoria
   itemsVisibles = computed(() => {
@@ -92,7 +168,17 @@ export class InventoryComponent implements OnInit, OnDestroy {
     if (filtroPorDeposito) {
       items = items.filter(reg => (reg.nombre_deposito || '').toLowerCase().includes(filtroPorDeposito));
     }
+    // Filtrar por representante en memoria (búsqueda parcial sin distinción de mayúsculas)
+    const filtroPorRepresentante = this.filtroRepresentante().trim().toLowerCase();
+    if (filtroPorRepresentante) {
+      items = items.filter(reg => (reg.representante || '').toLowerCase().includes(filtroPorRepresentante));
+    }
 
+    // Filtrar por disponibilidad en memoria (búsqueda parcial sin distinción de mayúsculas)
+    const filtroPorDisponibilidad = this.filtroDisponibilidad().trim().toLowerCase();
+    if (filtroPorDisponibilidad) {
+      items = items.filter(reg => (reg.disponibilidad || '').toLowerCase().includes(filtroPorDisponibilidad));
+    }
     // Ordenar en memoria sin hacer consultas al servidor
     return [...items].sort((a, b) => {
       const fechaA = new Date(a.fecha_movimiento || 0).getTime();
@@ -105,6 +191,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
     // Escuchar eventos de refresco desde el header
     this.suscripcionRefresco = this.refreshService.refresco$.subscribe(() => {
       console.log('Refrescando Stock Aprobado desde el Header...');
+      this.tiempoRestanteActualizacion.set(60);
       this.cargarStock();
     });
 
@@ -120,6 +207,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
       if (this.vistaDetalle()) {
         this.regresarATabla();
       }
+
+      // Resetear la visibilidad de la tabla actual de Equipos VAC al cambiar de filtros
+      this.mostrarTablaActualVAC.set(false);
 
       // Limpiar el buscador cada vez que cambien los filtros de la URL (navegación desde sidebar)
       this.searchTerm.set('');
@@ -137,6 +227,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       if (typeKey) {
         const codigosFijos = this.configService.getCodigosFijos(typeKey);
         if (codigosFijos) {
+          this.tiempoRestanteActualizacion.set(60);
           this.modoCodigosFijos.set(true);
           const label = this.configService.getMenuLabelByType(typeKey);
           this.tipoCategoriaTitle.set(label);
@@ -184,11 +275,16 @@ export class InventoryComponent implements OnInit, OnDestroy {
       this.currentFiltersQuery.set(filterQuery);
       this.cargarStock();
     });
+
+    this.iniciarIntervaloVAC();
   }
 
   ngOnDestroy(): void {
     // Limpiar suscripción para evitar fugas de memoria
     this.suscripcionRefresco?.unsubscribe();
+    if (this.intervaloActualizacion) {
+      clearInterval(this.intervaloActualizacion);
+    }
   }
 
   /**
@@ -229,8 +325,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
           prod_id: {
             codigo: codigo,
             descripcion: codigo === 'A4-S0002'
-              ? 'XLR8 NEGATIVE PRESSURE WOUND THERAPY SYSTEM NPWT PUMP'
-              : 'XLR8 ACCESORIOS / OTRO EQUIPO VAC',
+              ? 'EQUIPO VAC XLR8'
+              : 'EQUIPO VAC XLR8 + PLUS',
             tipo: 'SG-IM'
           },
           disponible: 0,
@@ -242,7 +338,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           consignacion: 0,
           venta_sujeta: 0,
           stock_total: 0,
-          
+
           // Columnas específicas para Equipos VAC
           stock_cx: 0,
           pendiente_revision: 0,
@@ -276,7 +372,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
             consignacion: 0,
             venta_sujeta: 0,
             stock_total: 0,
-            
+
             // Columnas específicas para Equipos VAC
             stock_cx: 0,
             pendiente_revision: 0,
@@ -300,7 +396,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           const sector = (reg.sector || '').trim();
 
           // 1. Stock para Cx: (deposito=SG-APR || deposito=RRM-APR) && sector<>AN-ING && sector<>R82.A
-          if ((deposito === 'SG-APR' || deposito === 'RRM-APR') && sector !== 'AN-ING' && sector !== 'R82.A') {
+          if ((deposito === 'SG-APR' || deposito === 'RRM-APR') && sector !== 'AN-ING' && sector !== 'PRI-R82.A') {
             itemObjeto.stock_cx += cantidad;
           }
 
@@ -315,7 +411,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           }
 
           // 4. Nueva Importación: deposito=RRM-APR && sector=R82.A
-          if (deposito === 'RRM-APR' && sector === 'R82.A') {
+          if (deposito === 'RRM-APR' && sector === 'PRI-R82.A') {
             itemObjeto.nueva_importacion += cantidad;
           }
 
@@ -325,7 +421,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           }
 
           // Sumar al total general de stock (SOLO si no es depósito de baja)
-          if (!deposito.endsWith('-BAJ')) {
+          if (!deposito.endsWith('-BAJ') && !deposito.endsWith('-VAF') && !deposito.endsWith('-CSA')) {
             itemObjeto.stock_total += cantidad;
 
             // Compatibilidad: mantener los campos originales
@@ -437,7 +533,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
         existing.consignacion = (existing.consignacion || 0) + (item.consignacion || 0);
         existing.venta_sujeta = (existing.venta_sujeta || 0) + (item.venta_sujeta || 0);
         existing.stock = (existing.stock || 0) + (item.stock || 0);
-        
+
         // Sumar columnas específicas de VAC
         existing.stock_cx = (existing.stock_cx || 0) + (item.stock_cx || 0);
         existing.pendiente_revision = (existing.pendiente_revision || 0) + (item.pendiente_revision || 0);
@@ -502,9 +598,70 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
     this.loadingExport.set(true);
     this.exportProgress.set(0);
-    console.log('Iniciando exportación a Excel filtrada y paralela...');
+    console.log('Iniciando exportación a Excel...');
 
     try {
+      // Si estamos en modo de códigos fijos (Equipos VAC), exportar la data local acumulada
+      if (this.modoCodigosFijos()) {
+        let dataEquipos = this.equiposVACData();
+        const tablaOculta = !this.mostrarTablaActualVAC() || !this.puedeVerTablaActualVAC();
+
+        if (tablaOculta) {
+          // Filtrar solo equipos internados (deposito termina en -VS o -C y cantidad > 0)
+          dataEquipos = dataEquipos.filter((reg: any) => {
+            const dep = (reg.deposito || '').trim();
+            const cant = Math.round(reg.cantidad || 0);
+            return cant > 0 && (dep.endsWith('-VS') || dep.endsWith('-C'));
+          });
+        } else {
+          // Filtrar excluyendo depósitos de baja, CSA o VAF
+          dataEquipos = dataEquipos.filter((reg: any) => {
+            const dep = (reg.deposito || '').trim();
+            return !dep.endsWith('-BAJ') && !dep.endsWith('-CSA') && !dep.endsWith('-VAF');
+          });
+        }
+
+        const datosExportar = dataEquipos.map((reg: any) => {
+          const codigoDoc = (reg.codigo || '').trim();
+          let documentoFormateado = '—';
+          if (codigoDoc) {
+            let codigoModificado = codigoDoc;
+            if (codigoDoc.startsWith('SGRG')) {
+              codigoModificado = codigoDoc.replace('SGRG', 'T00');
+            } else if (codigoDoc.startsWith('RRRG')) {
+              codigoModificado = codigoDoc.replace('RRRG', 'T00');
+            }
+            documentoFormateado = `${codigoModificado}-${reg.numero || ''}`;
+          }
+
+          return {
+            'CÓDIGO PRODUCTO': (reg.prod || '').trim(),
+            'N° SERIE': (reg.serie || '').trim() || (reg.activo || '').trim() || '—',
+            'REPRESENTANTE': (reg.representante || '').trim() || '—',
+            'CLIENTE': (reg.cliente || '').trim() || '—',
+            'PACIENTE': (reg.paciente || '').trim() || '—',
+            'DOCUMENTO': documentoFormateado,
+            'FECHA MOVIMIENTO': reg.fecha_mov || '—',
+            // 'DEPÓSITO': (reg.deposito || '').trim() || '—',
+            // 'SECTOR': (reg.sector || '').trim() || '—',
+            'DÍAS EMPLEADOS': this.calcularDiasEmpleados(reg.fecha_mov),
+            'DISPONIBILIDAD': this.obtenerDisponibilidad(reg.deposito, reg.sector)
+          };
+        });
+
+        // Ordenar alfabéticamente por representante en el frontend
+        datosExportar.sort((a: any, b: any) => a['REPRESENTANTE'].localeCompare(b['REPRESENTANTE']));
+
+        const worksheet = XLSX.utils.json_to_sheet(datosExportar);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Equipos VAC');
+
+        const fileName = `Equipos_VAC_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(workbook, fileName);
+        this.loadingExport.set(false);
+        return;
+      }
+
       const fullQuery = this.getCombinedQuery();
       const top = 1000;
 
@@ -722,6 +879,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
    * @param item Registro del inventario a detallar.
    */
   async verDetalleTodos(item: any): Promise<void> {
+    this.tiempoRestanteActualizacion.set(60);
     const codigo = item.prod_id?.codigo;
     if (!codigo) return;
 
@@ -734,6 +892,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.ordenFechaAscendente.set(false);
     this.filtroSerie.set('');
     this.filtroDeposito.set('');
+    this.filtroRepresentante.set('');
+    this.filtroDisponibilidad.set('');
+    this.mostrarCodigoProductoDetalle.set(false);
     this.errorDetalle.set(null);
     this.loadingDetalle.set(true);
     this.vistaDetalle.set(true);
@@ -814,7 +975,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
           nombre_deposito: dep || '—',
           sector: sec || '—',
           cantidad: cantidadActual,
-          tipo_almacenaje: tipoAlmacenaje
+          tipo_almacenaje: tipoAlmacenaje,
+          codigo_producto: (reg.prod || '').trim(),
+          disponibilidad: this.obtenerDisponibilidad(dep, sec)
         };
       });
 
@@ -823,8 +986,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
       // Guardar en las señales de detalle (Raw tiene todos los registros)
       this.itemsConsignacionRaw.set(todosLosResultados);
 
-      // Filtrar para excluir los equipos que se encuentran en depósitos de baja
-      const sinBajas = todosLosResultados.filter((reg: any) => !(reg.nombre_deposito || '').endsWith('-BAJ'));
+      // Filtrar para excluir los equipos que se encuentran en depósitos de baja, VAF o CSA
+      const sinBajas = todosLosResultados.filter((reg: any) => {
+        const dep = reg.nombre_deposito || '';
+        return !dep.endsWith('-BAJ') && !dep.endsWith('-VAF') && !dep.endsWith('-CSA');
+      });
       this.itemsConsignacion.set(sinBajas);
       this.itemsConsignacionCeros.set([]);
 
@@ -837,7 +1003,135 @@ export class InventoryComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Abre el detalle de todos los equipos VAC internados, agrupados/ordenados por representante en el frontend
+  async verDetalleTotalGeneralVAC(): Promise<void> {
+    this.tiempoRestanteActualizacion.set(60);
+    // Definimos un producto seleccionado ficticio para mostrar en la cabecera
+    this.productoSeleccionado.set({
+      prod_id: {
+        codigo: 'TOTAL GENERAL',
+        descripcion: 'TODOS LOS EQUIPOS VAC INTERNADOS'
+      }
+    });
+    this.itemsConsignacion.set([]);
+    this.itemsConsignacionCeros.set([]);
+    this.itemsConsignacionRaw.set([]);
+    this.mostrarKardexOriginal.set(false);
+    this.mostrarCeros.set(false);
+    this.ordenFechaAscendente.set(false);
+    this.filtroSerie.set('');
+    this.filtroDeposito.set('');
+    this.filtroRepresentante.set('');
+    this.filtroDisponibilidad.set('');
+    this.mostrarCodigoProductoDetalle.set(true);
+    this.errorDetalle.set(null);
+    this.loadingDetalle.set(true);
+    this.vistaDetalle.set(true);
+
+    try {
+      // 1. Obtener toda la información consolidada de Equipos VAC
+      const respuesta = await firstValueFrom(this.apiService.getEquiposVAC(1000));
+      const todosLosEquipos = respuesta?.results || (Array.isArray(respuesta) ? respuesta : []);
+
+      // Actualizar la señal en memoria
+      this.equiposVACData.set(todosLosEquipos);
+
+      // 2. Filtrar solo los registros que están como internados (deposito termina en -VS o -C) y cantidad > 0
+      const equiposFiltrados = todosLosEquipos.filter((reg: any) => {
+        const dep = (reg.deposito || '').trim();
+        const cant = Math.round(reg.cantidad || 0);
+        return cant > 0 && (dep.endsWith('-VS') || dep.endsWith('-C'));
+      });
+
+      // 3. Mapear cada equipo al formato consumido por la tabla de detalle
+      const todosLosResultados = equiposFiltrados.map((reg: any) => {
+        const cantidadActual = Math.round(reg.cantidad || 0);
+
+        // Formatear el documento y determinar la empresa
+        const codigoDoc = (reg.codigo || '').trim();
+        let documentoFormateado = '—';
+        let empresaNombre = '';
+
+        if (codigoDoc) {
+          let codigoModificado = codigoDoc;
+          if (codigoDoc.startsWith('SGRG')) {
+            codigoModificado = codigoDoc.replace('SGRG', 'T00');
+            empresaNombre = 'SURGICORP S.R.L.';
+          } else if (codigoDoc.startsWith('RRRG')) {
+            codigoModificado = codigoDoc.replace('RRRG', 'T00');
+            empresaNombre = 'RR MEDICAL S.R.L.';
+          } else {
+            if (reg.empresa === '01') empresaNombre = 'SURGICORP S.R.L.';
+            else if (reg.empresa === '04') empresaNombre = 'RR MEDICAL S.R.L.';
+          }
+
+          documentoFormateado = `${codigoModificado}-${reg.numero || ''}`;
+        }
+
+        // Lógica de cálculo de tipo_almacenaje específica para Equipos VAC
+        let tipoAlmacenaje = 'STOCK DISPONIBLE';
+        const dep = (reg.deposito || '').trim();
+        const sec = (reg.sector || '').trim();
+
+        if (dep.endsWith('-BAJ')) {
+          tipoAlmacenaje = 'BAJA';
+        } else if (dep.endsWith('-DEV')) {
+          tipoAlmacenaje = 'DEVOLUCION EN PROCESO';
+        } else if (dep.endsWith('-CSA')) {
+          tipoAlmacenaje = 'PRODUCTOS POR REGULARIZAR ATENCIONES';
+        } else if (dep.endsWith('-VAF')) {
+          tipoAlmacenaje = 'PRODUCTOS POR REGULARIZAR FACTURACION';
+        } else if (dep.endsWith('-APR')) {
+          if (sec.endsWith('-ING') || sec === 'AN-ING') {
+            tipoAlmacenaje = 'INGENIERIA';
+          } else if (sec === 'R82.A') {
+            tipoAlmacenaje = 'IMPORTACION EN PROCESO DE APROBACION';
+          } else {
+            tipoAlmacenaje = 'STOCK DISPONIBLE';
+          }
+        } else if (reg.cliente && reg.cliente.trim() !== '' && reg.cliente.trim() !== '----') {
+          tipoAlmacenaje = 'CONSIGNACION';
+        } else if (dep.endsWith('-VS') || dep.endsWith('-C')) {
+          tipoAlmacenaje = 'CONSIGNACION';
+        }
+
+        return {
+          tipo_producto: (reg.tipo_producto || '').trim(),
+          numero_serie: (reg.serie || '').trim() || (reg.activo || '').trim() || '—',
+          representante: (reg.representante || '').trim() || '—',
+          cliente: (reg.cliente || '').trim() || '—',
+          paciente: (reg.paciente || '').trim() || '—',
+          documento: documentoFormateado,
+          empresa_nombre: empresaNombre,
+          fecha_movimiento: reg.fecha_mov || null,
+          nombre_deposito: dep || '—',
+          sector: sec || '—',
+          cantidad: cantidadActual,
+          tipo_almacenaje: tipoAlmacenaje,
+          codigo_producto: (reg.prod || '').trim(),
+          disponibilidad: this.obtenerDisponibilidad(dep, sec)
+        };
+      });
+
+      // Ordenar por representante en el frontend
+      todosLosResultados.sort((a: any, b: any) => a.representante.localeCompare(b.representante));
+
+      console.log(`Equipos VAC Detalle Total General: ${todosLosResultados.length} registros cargados.`);
+
+      this.itemsConsignacionRaw.set(todosLosResultados);
+      this.itemsConsignacion.set(todosLosResultados);
+      this.itemsConsignacionCeros.set([]);
+
+      this.loadingDetalle.set(false);
+    } catch (err) {
+      console.error('Error al cargar detalle total general VAC:', err);
+      this.errorDetalle.set('No se pudo cargar el detalle. Intente nuevamente.');
+      this.loadingDetalle.set(false);
+    }
+  }
+
   regresarATabla(): void {
+    this.tiempoRestanteActualizacion.set(60);
     this.vistaDetalle.set(false);
     this.productoSeleccionado.set(null);
     this.itemsConsignacion.set([]);
@@ -848,6 +1142,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.ordenFechaAscendente.set(false);
     this.filtroSerie.set('');
     this.filtroDeposito.set('');
+    this.filtroRepresentante.set('');
+    this.filtroDisponibilidad.set('');
     this.errorDetalle.set(null);
 
     // Si estamos en modo de códigos fijos (Equipos VAC), refrescar la tabla principal al regresar
@@ -856,6 +1152,13 @@ export class InventoryComponent implements OnInit, OnDestroy {
       if (codigosFijos) {
         this.cargarStockCodigosFijos(codigosFijos);
       }
+    }
+  }
+
+  // Alterna la visibilidad de la tabla actual de Equipos VAC si el usuario está autorizado
+  toggleTablaActualVAC(): void {
+    if (this.modoCodigosFijos() && this.puedeVerTablaActualVAC()) {
+      this.mostrarTablaActualVAC.set(!this.mostrarTablaActualVAC());
     }
   }
 
@@ -905,8 +1208,374 @@ export class InventoryComponent implements OnInit, OnDestroy {
     return mapaClases[tipo] || 'almacenaje-default';
   }
 
+
+  /**
+   * Retorna la disponibilidad calculada del equipo VAC según el depósito y sector.
+   * @param deposito Nombre del depósito del registro.
+   * @param sector Nombre del sector del registro.
+   */
+  obtenerDisponibilidad(deposito: string, sector: string): string {
+    const dep = (deposito || '').trim();
+    const sec = (sector || '').trim();
+
+    if ((dep === 'SG-APR' || dep === 'RRM-APR') && sec !== 'AN-ING' && sec !== 'PRI-R82.A') {
+      return 'STOCK PARA CX';
+    }
+    if (dep === 'SG-DEV' || dep === 'RRM-DEV') {
+      return 'PEND. REVISIÓN';
+    }
+    if ((dep === 'SG-APR' || dep === 'RRM-APR') && sec === 'AN-ING') {
+      return 'INGENIERÍA - 6TO PISO';
+    }
+    if (dep === 'RRM-APR' && sec === 'PRI-R82.A') {
+      return 'NUEVA IMPORTACIÓN';
+    }
+    if (dep.endsWith('-VS') || dep.endsWith('-C')) {
+      return 'INTERNADO';
+    }
+    return '—';
+  }
+
+  /**
+   * Retorna la clase CSS correspondiente al estado de disponibilidad para colorear el badge.
+   * @param disponibilidad Valor del campo disponibilidad del registro.
+   */
+  obtenerClaseDisponibilidad(disponibilidad: string): string {
+    const disp = (disponibilidad || '').toUpperCase().trim();
+    const mapaClases: Record<string, string> = {
+      'STOCK PARA CX': 'disponibilidad-stock',
+      'PEND. REVISIÓN': 'disponibilidad-pendiente',
+      'INGENIERÍA - 6TO PISO': 'disponibilidad-ingenieria',
+      'NUEVA IMPORTACIÓN': 'disponibilidad-nueva',
+      'INTERNADO': 'disponibilidad-internados'
+    };
+    return mapaClases[disp] || 'disponibilidad-default';
+  }
+
+  /**
+   * Alterna el orden de fecha entre ascendente y descendente en memoria.
+   */
   toggleOrdenFecha(): void {
     this.ordenFechaAscendente.set(!this.ordenFechaAscendente());
+  }
+
+  /**
+   * Alterna entre el kardex original y la vista agrupada, limpiando el filtro de depósito y de disponibilidad si se oculta en el Total General.
+   */
+  toggleKardexOriginal(): void {
+    const nuevoValor = !this.mostrarKardexOriginal();
+    this.mostrarKardexOriginal.set(nuevoValor);
+    if (!nuevoValor) {
+      this.filtroDeposito.set('');
+      if (this.productoSeleccionado()?.prod_id?.codigo === 'TOTAL GENERAL') {
+        this.filtroDisponibilidad.set('');
+      }
+    }
+  }
+
+  /**
+   * Inicia el intervalo de actualización automática de Equipos VAC cada segundo para descontar el contador.
+   */
+  iniciarIntervaloVAC(): void {
+    if (this.intervaloActualizacion) {
+      clearInterval(this.intervaloActualizacion);
+    }
+
+    this.intervaloActualizacion = setInterval(() => {
+      if (this.modoCodigosFijos()) {
+        const seg = this.tiempoRestanteActualizacion();
+        if (seg <= 1) {
+          this.tiempoRestanteActualizacion.set(60);
+          this.actualizarDatosVAC();
+        } else {
+          this.tiempoRestanteActualizacion.set(seg - 1);
+        }
+      } else {
+        if (this.tiempoRestanteActualizacion() !== 60) {
+          this.tiempoRestanteActualizacion.set(60);
+        }
+      }
+    }, 1000);
+  }
+
+  /**
+   * Actualiza silenciosamente los datos de stock y detalles de Equipos VAC.
+   */
+  async actualizarDatosVAC(): Promise<void> {
+    console.log('Iniciando recarga automática silenciosa de Equipos VAC...');
+    const codigosFijos = this.configService.getCodigosFijos('VAC');
+    if (!codigosFijos || codigosFijos.length === 0) return;
+
+    try {
+      console.log('Consultando API getEquiposVAC(1000)...');
+      const respuesta = await firstValueFrom(this.apiService.getEquiposVAC(1000));
+      const todosLosEquipos = respuesta?.results || (Array.isArray(respuesta) ? respuesta : []);
+      console.log(`API getEquiposVAC retornó ${todosLosEquipos.length} registros.`);
+
+      this.equiposVACData.set(todosLosEquipos);
+
+      if (this.vistaDetalle()) {
+        const prodSel = this.productoSeleccionado();
+        if (prodSel) {
+          const codigo = prodSel.prod_id?.codigo;
+          if (codigo === 'TOTAL GENERAL') {
+            const equiposFiltrados = todosLosEquipos.filter((reg: any) => {
+              const dep = (reg.deposito || '').trim();
+              const cant = Math.round(reg.cantidad || 0);
+              return cant > 0 && (dep.endsWith('-VS') || dep.endsWith('-C'));
+            });
+
+            const todosLosResultados = equiposFiltrados.map((reg: any) => {
+              const cantidadActual = Math.round(reg.cantidad || 0);
+              const codigoDoc = (reg.codigo || '').trim();
+              let documentoFormateado = '—';
+              let empresaNombre = '';
+
+              if (codigoDoc) {
+                let codigoModificado = codigoDoc;
+                if (codigoDoc.startsWith('SGRG')) {
+                  codigoModificado = codigoDoc.replace('SGRG', 'T00');
+                  empresaNombre = 'SURGICORP S.R.L.';
+                } else if (codigoDoc.startsWith('RRRG')) {
+                  codigoModificado = codigoDoc.replace('RRRG', 'T00');
+                  empresaNombre = 'RR MEDICAL S.R.L.';
+                } else {
+                  if (reg.empresa === '01') empresaNombre = 'SURGICORP S.R.L.';
+                  else if (reg.empresa === '04') empresaNombre = 'RR MEDICAL S.R.L.';
+                }
+                documentoFormateado = `${codigoModificado}-${reg.numero || ''}`;
+              }
+
+              let tipoAlmacenaje = 'STOCK DISPONIBLE';
+              const dep = (reg.deposito || '').trim();
+              const sec = (reg.sector || '').trim();
+
+              if (dep.endsWith('-BAJ')) {
+                tipoAlmacenaje = 'BAJA';
+              } else if (dep.endsWith('-DEV')) {
+                tipoAlmacenaje = 'DEVOLUCION EN PROCESO';
+              } else if (dep.endsWith('-CSA')) {
+                tipoAlmacenaje = 'PRODUCTOS POR REGULARIZAR ATENCIONES';
+              } else if (dep.endsWith('-VAF')) {
+                tipoAlmacenaje = 'PRODUCTOS POR REGULARIZAR FACTURACION';
+              } else if (dep.endsWith('-APR')) {
+                if (sec.endsWith('-ING') || sec === 'AN-ING') {
+                  tipoAlmacenaje = 'INGENIERIA';
+                } else if (sec === 'R82.A') {
+                  tipoAlmacenaje = 'IMPORTACION EN PROCESO DE APROBACION';
+                } else {
+                  tipoAlmacenaje = 'STOCK DISPONIBLE';
+                }
+              } else if (reg.cliente && reg.cliente.trim() !== '' && reg.cliente.trim() !== '----') {
+                tipoAlmacenaje = 'CONSIGNACION';
+              } else if (dep.endsWith('-VS') || dep.endsWith('-C')) {
+                tipoAlmacenaje = 'CONSIGNACION';
+              }
+
+              return {
+                tipo_producto: (reg.tipo_producto || '').trim(),
+                numero_serie: (reg.serie || '').trim() || (reg.activo || '').trim() || '—',
+                representante: (reg.representante || '').trim() || '—',
+                cliente: (reg.cliente || '').trim() || '—',
+                paciente: (reg.paciente || '').trim() || '—',
+                documento: documentoFormateado,
+                empresa_nombre: empresaNombre,
+                fecha_movimiento: reg.fecha_mov || null,
+                nombre_deposito: dep || '—',
+                sector: sec || '—',
+                cantidad: cantidadActual,
+                tipo_almacenaje: tipoAlmacenaje,
+                codigo_producto: (reg.prod || '').trim(),
+                disponibilidad: this.obtenerDisponibilidad(dep, sec)
+              };
+            });
+
+            todosLosResultados.sort((a: any, b: any) => a.representante.localeCompare(b.representante));
+            this.itemsConsignacionRaw.set(todosLosResultados);
+            this.itemsConsignacion.set(todosLosResultados);
+            this.itemsConsignacionCeros.set([]);
+          } else if (codigo) {
+            const equiposFiltrados = todosLosEquipos.filter((reg: any) => (reg.prod || '').trim() === codigo);
+            const todosLosResultados = equiposFiltrados.map((reg: any) => {
+              const cantidadActual = Math.round(reg.cantidad || 0);
+              const codigoDoc = (reg.codigo || '').trim();
+              let documentoFormateado = '—';
+              let empresaNombre = '';
+
+              if (codigoDoc) {
+                let codigoModificado = codigoDoc;
+                if (codigoDoc.startsWith('SGRG')) {
+                  codigoModificado = codigoDoc.replace('SGRG', 'T00');
+                  empresaNombre = 'SURGICORP S.R.L.';
+                } else if (codigoDoc.startsWith('RRRG')) {
+                  codigoModificado = codigoDoc.replace('RRRG', 'T00');
+                  empresaNombre = 'RR MEDICAL S.R.L.';
+                } else {
+                  if (reg.empresa === '01') empresaNombre = 'SURGICORP S.R.L.';
+                  else if (reg.empresa === '04') empresaNombre = 'RR MEDICAL S.R.L.';
+                }
+                documentoFormateado = `${codigoModificado}-${reg.numero || ''}`;
+              }
+
+              let tipoAlmacenaje = 'STOCK DISPONIBLE';
+              const dep = (reg.deposito || '').trim();
+              const sec = (reg.sector || '').trim();
+
+              if (dep.endsWith('-BAJ')) {
+                tipoAlmacenaje = 'BAJA';
+              } else if (dep.endsWith('-DEV')) {
+                tipoAlmacenaje = 'DEVOLUCION EN PROCESO';
+              } else if (dep.endsWith('-CSA')) {
+                tipoAlmacenaje = 'PRODUCTOS POR REGULARIZAR ATENCIONES';
+              } else if (dep.endsWith('-VAF')) {
+                tipoAlmacenaje = 'PRODUCTOS POR REGULARIZAR FACTURACION';
+              } else if (dep.endsWith('-APR')) {
+                if (sec.endsWith('-ING') || sec === 'AN-ING') {
+                  tipoAlmacenaje = 'INGENIERIA';
+                } else if (sec === 'R82.A') {
+                  tipoAlmacenaje = 'IMPORTACION EN PROCESO DE APROBACION';
+                } else {
+                  tipoAlmacenaje = 'STOCK DISPONIBLE';
+                }
+              } else if (reg.cliente && reg.cliente.trim() !== '' && reg.cliente.trim() !== '----') {
+                tipoAlmacenaje = 'CONSIGNACION';
+              } else if (dep.endsWith('-VS') || dep.endsWith('-C')) {
+                tipoAlmacenaje = 'CONSIGNACION';
+              }
+
+              return {
+                tipo_producto: (reg.tipo_producto || '').trim(),
+                numero_serie: (reg.serie || '').trim() || (reg.activo || '').trim() || '—',
+                representante: (reg.representante || '').trim() || '—',
+                cliente: (reg.cliente || '').trim() || '—',
+                paciente: (reg.paciente || '').trim() || '—',
+                documento: documentoFormateado,
+                empresa_nombre: empresaNombre,
+                fecha_movimiento: reg.fecha_mov || null,
+                nombre_deposito: dep || '—',
+                sector: sec || '—',
+                cantidad: cantidadActual,
+                tipo_almacenaje: tipoAlmacenaje,
+                codigo_producto: (reg.prod || '').trim(),
+                disponibilidad: this.obtenerDisponibilidad(dep, sec)
+              };
+            });
+
+            this.itemsConsignacionRaw.set(todosLosResultados);
+            const sinBajas = todosLosResultados.filter((reg: any) => {
+              const dep = reg.nombre_deposito || '';
+              return !dep.endsWith('-BAJ') && !dep.endsWith('-VAF') && !dep.endsWith('-CSA');
+            });
+            this.itemsConsignacion.set(sinBajas);
+            this.itemsConsignacionCeros.set([]);
+          }
+        }
+      }
+
+      const itemsAgrupadosMap = new Map<string, any>();
+      codigosFijos.forEach(codigo => {
+        itemsAgrupadosMap.set(codigo, {
+          id: Math.random(),
+          displayCategory: codigo === 'A4-S0002' ? 'VAC' : (codigo === 'A4-S0003' ? 'VAC PLUS' : 'Equipos VAC'),
+          prod_id: {
+            codigo: codigo,
+            descripcion: codigo === 'A4-S0002' ? 'EQUIPO VAC XLR8' : 'EQUIPO VAC XLR8 + PLUS',
+            tipo: 'SG-IM'
+          },
+          disponible: 0,
+          importacion: 0,
+          inkjet: 0,
+          acondicionado: 0,
+          reesterilizado: 0,
+          observados: 0,
+          consignacion: 0,
+          venta_sujeta: 0,
+          stock_total: 0,
+          stock_cx: 0,
+          pendiente_revision: 0,
+          ingenieria: 0,
+          nueva_importacion: 0,
+          internados: 0
+        });
+      });
+
+      todosLosEquipos.forEach((reg: any) => {
+        const prodCodigo = (reg.prod || '').trim();
+        if (!prodCodigo) return;
+
+        if (!itemsAgrupadosMap.has(prodCodigo)) {
+          itemsAgrupadosMap.set(prodCodigo, {
+            id: Math.random(),
+            displayCategory: prodCodigo === 'A4-S0002' ? 'VAC' : (prodCodigo === 'A4-S0003' ? 'VAC PLUS' : 'Equipos VAC'),
+            prod_id: {
+              codigo: prodCodigo,
+              descripcion: reg.descripcion || 'EQUIPO VAC',
+              tipo: reg.tipo_producto || 'SG-IM'
+            },
+            disponible: 0,
+            importacion: 0,
+            inkjet: 0,
+            acondicionado: 0,
+            reesterilizado: 0,
+            observados: 0,
+            consignacion: 0,
+            venta_sujeta: 0,
+            stock_total: 0,
+            stock_cx: 0,
+            pendiente_revision: 0,
+            ingenieria: 0,
+            nueva_importacion: 0,
+            internados: 0
+          });
+        }
+
+        const itemObjeto = itemsAgrupadosMap.get(prodCodigo);
+        const cantidad = Math.round(reg.cantidad || 0);
+
+        if (reg.descripcion && itemObjeto.prod_id.descripcion === prodCodigo) {
+          itemObjeto.prod_id.descripcion = reg.descripcion;
+        }
+
+        if (cantidad > 0) {
+          const deposito = (reg.deposito || '').trim();
+          const sector = (reg.sector || '').trim();
+
+          if ((deposito === 'SG-APR' || deposito === 'RRM-APR') && sector !== 'AN-ING' && sector !== 'PRI-R82.A') {
+            itemObjeto.stock_cx += cantidad;
+          }
+          if (deposito === 'SG-DEV' || deposito === 'RRM-DEV') {
+            itemObjeto.pendiente_revision += cantidad;
+          }
+          if ((deposito === 'SG-APR' || deposito === 'RRM-APR') && sector === 'AN-ING') {
+            itemObjeto.ingenieria += cantidad;
+          }
+          if (deposito === 'RRM-APR' && sector === 'PRI-R82.A') {
+            itemObjeto.nueva_importacion += cantidad;
+          }
+          if (deposito.endsWith('-VS') || deposito.endsWith('-C')) {
+            itemObjeto.internados += cantidad;
+          }
+
+          if (!deposito.endsWith('-BAJ') && !deposito.endsWith('-VAF') && !deposito.endsWith('-CSA')) {
+            itemObjeto.stock_total += cantidad;
+            const tieneCliente = reg.cliente && reg.cliente.trim() !== '' && reg.cliente.trim() !== '----';
+            if (tieneCliente) {
+              itemObjeto.consignacion += cantidad;
+            } else {
+              itemObjeto.disponible += cantidad;
+            }
+          }
+        }
+      });
+
+      const todosItems = Array.from(itemsAgrupadosMap.values());
+      this.stockItems.set(todosItems);
+      this.totalCount.set(todosItems.length);
+      console.log('Recarga automática silenciosa de Equipos VAC completada.');
+
+    } catch (err) {
+      console.error('Error en actualizarDatosVAC:', err);
+    }
   }
 
   /**

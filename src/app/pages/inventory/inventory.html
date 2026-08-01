@@ -56,12 +56,79 @@
 
     <!-- Título de Categoría Seleccionada -->
     @if (tipoCategoriaTitle()) {
-    <div class="category-filter-title">
+    <div class="category-filter-title" [class.titulo-clickable]="modoCodigosFijos() && puedeVerTablaActualVAC()"
+      (click)="toggleTablaActualVAC()"
+      [title]="(modoCodigosFijos() && puedeVerTablaActualVAC()) ? 'Clic para mostrar/ocultar tabla de stock detallada' : ''">
       <i class="fas fa-layer-group"></i>
       <h2>{{ tipoCategoriaTitle() }}</h2>
     </div>
     }
 
+    <!-- Resumen de Equipos VAC por Representante -->
+    @if (modoCodigosFijos()) {
+    <div class="table-container resumen-vac-container"
+      [class.tabla-unica]="!mostrarTablaActualVAC() || !puedeVerTablaActualVAC()">
+      <table class="stock-table resumen-vac-table">
+        <thead>
+          <tr>
+            <th>
+              <span class="th-ordenable" (click)="toggleOrdenResumen('representante')"
+                title="Ordenar por representante">
+                REPRESENTANTE
+                @if (ordenResumenColumna() === 'representante') {
+                <i class="fas" [class.fa-arrow-up]="ordenResumenDireccion() === 'asc'"
+                  [class.fa-arrow-down]="ordenResumenDireccion() === 'desc'"></i>
+                } @else {
+                <i class="fas fa-sort" style="opacity: 0.5;"></i>
+                }
+              </span>
+            </th>
+            <th>
+              <span class="th-ordenable" (click)="toggleOrdenResumen('cantidad')" title="Ordenar por cantidad">
+                CANTIDAD
+                @if (ordenResumenColumna() === 'cantidad') {
+                <i class="fas" [class.fa-arrow-up]="ordenResumenDireccion() === 'desc'"
+                  [class.fa-arrow-down]="ordenResumenDireccion() === 'asc'"></i>
+                } @else {
+                <i class="fas fa-sort" style="opacity: 0.5;"></i>
+                }
+              </span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (fila of resumenEquiposVAC(); track fila.representante) {
+          <tr>
+            <td>
+              <div class="rep-nombre">{{ fila.representante }}</div>
+            </td>
+            <td>
+              <span class="badge badge-success">{{ fila.cantidad | number:'1.0-0' }}</span>
+            </td>
+          </tr>
+          }
+          @if (resumenEquiposVAC().length === 0 && !loading()) {
+          <tr>
+            <td colspan="2" class="no-results">
+              No se encontraron asignaciones por representante.
+            </td>
+          </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr class="fila-total-general-fija" (click)="verDetalleTotalGeneralVAC()"
+            title="Clic para ver detalle de todos los Equipos VAC internados">
+            <td><strong>TOTAL GENERAL</strong></td>
+            <td>
+              <span class="badge badge-total"><strong>{{ totalEquiposVAC() | number:'1.0-0' }}</strong></span>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    }
+
+    @if (!modoCodigosFijos() || (mostrarTablaActualVAC() && puedeVerTablaActualVAC())) {
     <div class="table-container">
       <table class="stock-table">
         <thead>
@@ -96,10 +163,9 @@
         </thead>
         <tbody>
           @for (item of stockItems(); track item.prod_id?.codigo) {
-          <tr [class.out-of-stock]="(item.stock_total || item.stock) <= 0"
-              [class.fila-clickable]="modoCodigosFijos()"
-              (click)="modoCodigosFijos() ? verDetalleTodos(item) : null"
-              [title]="modoCodigosFijos() ? 'Ver detalle de ' + item.prod_id?.codigo : ''">
+          <tr [class.out-of-stock]="(item.stock_total || item.stock) <= 0" [class.fila-clickable]="modoCodigosFijos()"
+            (click)="modoCodigosFijos() ? verDetalleTodos(item) : null"
+            [title]="modoCodigosFijos() ? 'Ver detalle de ' + item.prod_id?.codigo : ''">
             @if (modoCodigosFijos()) {
             <td>
               <div class="prod-cat">{{ item.displayCategory }}</div>
@@ -167,6 +233,7 @@
         </tbody>
       </table>
     </div>
+    }
 
     }
 
@@ -195,19 +262,30 @@
       <!-- Título de la sección -->
       <div class="detalle-titulo-seccion">
         <i class="fas fa-boxes"></i>
-        <h3>{{ modoCodigosFijos() ? 'Detalle por Guía' : (tipoCategoriaTitle() ? tipoCategoriaTitle() + ' - Detalle de Consignación' : 'Detalle de Consignación') }}</h3>
+        <h3>{{ modoCodigosFijos() ? 'Detalle por Guía' : (tipoCategoriaTitle() ? tipoCategoriaTitle() + ' - Detalle de
+          Consignación' : 'Detalle de Consignación') }}</h3>
         @if (!loadingDetalle()) {
         <!-- Filtros de búsqueda en detalle (serie y depósito) -->
         <div class="filtros-detalle-grupo">
+          <!-- Filtro por representante -->
+          @if (modoCodigosFijos()) {
+          <div class="filtro-detalle-wrapper">
+            <i class="fas fa-user filtro-detalle-icono"></i>
+            <input type="text" class="filtro-detalle-input" [ngModel]="filtroRepresentante()"
+              (ngModelChange)="filtroRepresentante.set($event)" placeholder="Filtrar representante..."
+              title="Filtrar registros por representante">
+            @if (filtroRepresentante()) {
+            <button class="filtro-detalle-clear" (click)="filtroRepresentante.set('')" title="Limpiar filtro">
+              <i class="fas fa-times"></i>
+            </button>
+            }
+          </div>
+          }
           <!-- Filtro por número de serie -->
           <div class="filtro-detalle-wrapper">
             <i class="fas fa-barcode filtro-detalle-icono"></i>
-            <input
-              type="text"
-              class="filtro-detalle-input"
-              [ngModel]="filtroSerie()"
-              (ngModelChange)="filtroSerie.set($event)"
-              placeholder="Filtrar serie..."
+            <input type="text" class="filtro-detalle-input" [ngModel]="filtroSerie()"
+              (ngModelChange)="filtroSerie.set($event)" placeholder="Filtrar serie..."
               title="Filtrar registros por número de serie">
             @if (filtroSerie()) {
             <button class="filtro-detalle-clear" (click)="filtroSerie.set('')" title="Limpiar filtro">
@@ -215,15 +293,27 @@
             </button>
             }
           </div>
+          <!-- Filtro por disponibilidad -->
+          @if (modoCodigosFijos() && (productoSeleccionado()?.prod_id?.codigo !== 'TOTAL GENERAL' ||
+          mostrarKardexOriginal())) {
+          <div class="filtro-detalle-wrapper">
+            <i class="fas fa-tags filtro-detalle-icono"></i>
+            <input type="text" class="filtro-detalle-input" [ngModel]="filtroDisponibilidad()"
+              (ngModelChange)="filtroDisponibilidad.set($event)" placeholder="Filtrar disponibilidad..."
+              title="Filtrar registros por disponibilidad">
+            @if (filtroDisponibilidad()) {
+            <button class="filtro-detalle-clear" (click)="filtroDisponibilidad.set('')" title="Limpiar filtro">
+              <i class="fas fa-times"></i>
+            </button>
+            }
+          </div>
+          }
           <!-- Filtro por nombre de depósito -->
+          @if (!modoCodigosFijos() || mostrarKardexOriginal()) {
           <div class="filtro-detalle-wrapper">
             <i class="fas fa-map-marker-alt filtro-detalle-icono"></i>
-            <input
-              type="text"
-              class="filtro-detalle-input"
-              [ngModel]="filtroDeposito()"
-              (ngModelChange)="filtroDeposito.set($event)"
-              placeholder="Filtrar depósito..."
+            <input type="text" class="filtro-detalle-input" [ngModel]="filtroDeposito()"
+              (ngModelChange)="filtroDeposito.set($event)" placeholder="Filtrar depósito..."
               title="Filtrar registros por nombre de depósito">
             @if (filtroDeposito()) {
             <button class="filtro-detalle-clear" (click)="filtroDeposito.set('')" title="Limpiar filtro">
@@ -231,6 +321,7 @@
             </button>
             }
           </div>
+          }
         </div>
         <!-- Checkbox para ver los registros que quedaron en cero (solo si no es Equipos VAC) -->
         @if (!modoCodigosFijos()) {
@@ -242,8 +333,7 @@
         </label>
         }
         <!-- Botón que alterna entre vista agrupada y kardex original -->
-        <button class="btn-toggle-kardex" (click)="mostrarKardexOriginal.set(!mostrarKardexOriginal())"
-          [class.activo]="mostrarKardexOriginal()"
+        <button class="btn-toggle-kardex" (click)="toggleKardexOriginal()" [class.activo]="mostrarKardexOriginal()"
           [title]="mostrarKardexOriginal() ? 'Ver resumen agrupado' : 'Ver kardex original sin agrupar'">
           <i class="fas" [ngClass]="mostrarKardexOriginal() ? 'fa-layer-group' : 'fa-list'"></i>
           {{ itemsVisibles().length }} registro(s)
@@ -273,10 +363,18 @@
         <table class="stock-table detalle-tabla">
           <thead>
             <tr>
+              @if (!modoCodigosFijos() || mostrarKardexOriginal()) {
               <th>Tipo Producto</th>
+              }
+              @if (modoCodigosFijos() && mostrarCodigoProductoDetalle()) {
+              <th>Código Producto</th>
+              }
               <th>N° Serie</th>
               @if (!modoCodigosFijos() || mostrarKardexOriginal()) {
               <th>Tipo Almacenaje</th>
+              }
+              @if (modoCodigosFijos()) {
+              <th>Disponibilidad</th>
               }
               @if (modoCodigosFijos()) {
               <th>Representante</th>
@@ -298,21 +396,38 @@
               <th>Sector</th>
               }
               <th>Días Empleados</th>
+              @if (!modoCodigosFijos() || mostrarKardexOriginal()) {
               <th>Cantidad</th>
+              }
             </tr>
           </thead>
           <tbody>
             @for (reg of itemsVisibles(); track $index) {
             <tr [class.fila-cero]="reg.cantidad == 0">
+              @if (!modoCodigosFijos() || mostrarKardexOriginal()) {
               <td>
                 <span class="badge-tipo">{{ reg.tipo_producto }}</span>
               </td>
+              }
+              @if (modoCodigosFijos() && mostrarCodigoProductoDetalle()) {
+              <td>
+                <span class="prod-code">{{ reg.codigo_producto || productoSeleccionado()?.prod_id?.codigo || '—'
+                  }}</span>
+              </td>
+              }
               <td>
                 <span class="serie-codigo">{{ reg.numero_serie || '—' }}</span>
               </td>
               @if (!modoCodigosFijos() || mostrarKardexOriginal()) {
               <td>
-                <span class="badge-almacenaje" [ngClass]="obtenerClaseAlmacenaje(reg.tipo_almacenaje)">{{ reg.tipo_almacenaje }}</span>
+                <span class="badge-almacenaje" [ngClass]="obtenerClaseAlmacenaje(reg.tipo_almacenaje)">{{
+                  reg.tipo_almacenaje }}</span>
+              </td>
+              }
+              @if (modoCodigosFijos()) {
+              <td>
+                <span class="badge-almacenaje" [ngClass]="obtenerClaseDisponibilidad(reg.disponibilidad)">{{
+                  reg.disponibilidad }}</span>
               </td>
               }
               @if (modoCodigosFijos()) {
@@ -334,23 +449,22 @@
                   {{ calcularDiasEmpleados(reg.fecha_movimiento) === 1 ? 'día' : 'días' }}
                 </span>
               </td>
+              @if (!modoCodigosFijos() || mostrarKardexOriginal()) {
               <td class="cantidad-celda">
-                @if (modoCodigosFijos() && !mostrarKardexOriginal()) {
-                <span class="badge badge-success">
-                  {{ obtenerCantidadAbsoluta(reg.cantidad) | number:'1.0-0' }}
-                </span>
-                } @else {
                 <span class="badge" [class.badge-success]="reg.cantidad > 0" [class.badge-danger]="reg.cantidad <= 0">
                   {{ reg.cantidad | number:'1.0-0' }}
                 </span>
-                }
               </td>
+              }
             </tr>
             }
             @if (itemsVisibles().length === 0) {
             <tr>
-              <td [attr.colspan]="modoCodigosFijos() ? (mostrarKardexOriginal() ? 12 : 9) : 8" class="no-results">
-                {{ modoCodigosFijos() ? 'No se encontraron registros de guías para este producto.' : 'No se encontraron registros de consignación para este producto.' }}
+              <td
+                [attr.colspan]="modoCodigosFijos() ? (mostrarKardexOriginal() ? (mostrarCodigoProductoDetalle() ? 14 : 13) : (mostrarCodigoProductoDetalle() ? 9 : 8)) : 8"
+                class="no-results">
+                {{ modoCodigosFijos() ? 'No se encontraron registros de guías para este producto.' : 'No se encontraron
+                registros de consignación para este producto.' }}
               </td>
             </tr>
             }
@@ -359,6 +473,14 @@
       </div>
       }
 
+    </div>
+    }
+
+    <!-- Contador sutil de actualización automática -->
+    @if (modoCodigosFijos()) {
+    <div class="vac-contador-actualizacion" title="Actualización automática de Equipos VAC">
+      <i class="fas fa-sync fa-spin"></i>
+      <span>Act. en {{ tiempoRestanteActualizacion() }}s</span>
     </div>
     }
 

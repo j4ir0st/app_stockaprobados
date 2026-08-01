@@ -57,7 +57,7 @@ export class ConfigService {
     if (!username) return this.menuItems;
     const opcionesPermitidas = this.restriccionesPorUsuario[username];
     if (!opcionesPermitidas) return this.menuItems;
-    return this.menuItems.filter(item => opcionesPermitidas.includes(item.label));
+    return this.menuItems.filter(item => item.label === 'Equipos VAC' || opcionesPermitidas.includes(item.label));
   }
 
   /**

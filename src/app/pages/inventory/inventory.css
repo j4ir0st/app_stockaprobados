@@ -710,6 +710,7 @@
     color: #065f46;
     border-color: rgba(16, 185, 129, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-disponible {
     background: rgba(52, 211, 153, 0.15);
     color: #6ee7b7;
@@ -722,6 +723,7 @@
     color: #5b21b6;
     border-color: rgba(139, 92, 246, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-muestra {
     background: rgba(167, 139, 250, 0.15);
     color: #c4b5fd;
@@ -734,6 +736,7 @@
     color: #9a3412;
     border-color: rgba(249, 115, 22, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-acondicionado {
     background: rgba(251, 146, 60, 0.15);
     color: #fed7aa;
@@ -746,6 +749,7 @@
     color: #991b1b;
     border-color: rgba(239, 68, 68, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-baja {
     background: rgba(248, 113, 113, 0.15);
     color: #fca5a5;
@@ -758,6 +762,7 @@
     color: #78350f;
     border-color: rgba(217, 119, 6, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-devolucion {
     background: rgba(251, 191, 36, 0.15);
     color: #fde68a;
@@ -770,6 +775,7 @@
     color: #115e59;
     border-color: rgba(13, 148, 136, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-ingenieria {
     background: rgba(45, 212, 191, 0.15);
     color: #99f6e4;
@@ -782,6 +788,7 @@
     color: #0891b2;
     border-color: rgba(6, 182, 212, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-inkjet {
     background: rgba(34, 211, 238, 0.15);
     color: #a5f3fc;
@@ -794,6 +801,7 @@
     color: #0369a1;
     border-color: rgba(14, 165, 233, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-importacion {
     background: rgba(56, 189, 248, 0.15);
     color: #bae6fd;
@@ -806,6 +814,7 @@
     color: #3730a3;
     border-color: rgba(79, 70, 229, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-prestamo {
     background: rgba(129, 140, 248, 0.15);
     color: #c7d2fe;
@@ -818,6 +827,7 @@
     color: #1e3a8a;
     border-color: rgba(29, 78, 216, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-compra-local {
     background: rgba(96, 165, 250, 0.15);
     color: #93c5fd;
@@ -830,6 +840,7 @@
     color: #334155;
     border-color: rgba(100, 116, 139, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-provisional {
     background: rgba(148, 163, 184, 0.15);
     color: #cbd5e1;
@@ -842,6 +853,7 @@
     color: #9d174d;
     border-color: rgba(236, 72, 153, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-reesterilizado {
     background: rgba(244, 114, 182, 0.15);
     color: #fbcfe8;
@@ -854,6 +866,7 @@
     color: #451a03;
     border-color: rgba(120, 53, 4, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-consumo {
     background: rgba(180, 83, 9, 0.15);
     color: #fed7aa;
@@ -866,6 +879,7 @@
     color: #881337;
     border-color: rgba(190, 24, 74, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-fuera-stock {
     background: rgba(225, 29, 72, 0.15);
     color: #fecdd3;
@@ -878,6 +892,7 @@
     color: #7f1d1d;
     border-color: rgba(220, 38, 38, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-observados {
     background: rgba(239, 68, 68, 0.15);
     color: #fca5a5;
@@ -890,6 +905,7 @@
     color: #3f6212;
     border-color: rgba(132, 204, 22, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-reg-atenciones {
     background: rgba(163, 230, 53, 0.15);
     color: #d9f99d;
@@ -902,6 +918,7 @@
     color: #115e59;
     border-color: rgba(15, 118, 110, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-vta-sujeta {
     background: rgba(45, 212, 191, 0.15);
     color: #99f6e4;
@@ -914,6 +931,7 @@
     color: #1e3a8a;
     border-color: rgba(30, 58, 138, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-reservado {
     background: rgba(30, 64, 175, 0.15);
     color: #93c5fd;
@@ -926,6 +944,7 @@
     color: #1d4ed8;
     border-color: rgba(37, 99, 235, 0.3);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-consignacion {
     background: rgba(96, 165, 250, 0.15);
     color: #93c5fd;
@@ -938,6 +957,7 @@
     color: #701a75;
     border-color: rgba(162, 28, 175, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-reg-facturacion {
     background: rgba(192, 38, 211, 0.15);
     color: #f5d0fe;
@@ -950,6 +970,7 @@
     color: #475569;
     border-color: rgba(100, 116, 139, 0.25);
 }
+
 .inventory-container.dark-mode .badge-almacenaje.almacenaje-default {
     background: rgba(148, 163, 184, 0.15);
     color: #94a3b8;
@@ -1217,4 +1238,236 @@
     background-color: #1e3a5f !important;
     border-left: 3px solid #60a5fa;
 }
-
+
+/* --- Resumen de Equipos VAC por Representante --- */
+.resumen-vac-container {
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    position: relative;
+    max-height: 350px;
+    display: flex;
+    flex-direction: column;
+    transition: max-height 0.3s ease;
+}
+
+.resumen-vac-container.tabla-unica {
+    max-height: calc(100vh - 170px);
+    flex: 1;
+}
+
+.resumen-vac-table {
+    margin-bottom: 0 !important;
+}
+
+.resumen-vac-table th {
+    background-color: var(--primary-blue);
+    /* Fondo dinámico color primario */
+    color: #ffffff;
+    font-weight: 700;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.75rem;
+}
+
+.resumen-vac-table td {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.8rem;
+}
+
+.resumen-vac-table tfoot {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+}
+
+.fila-total-general-fija td {
+    background-color: #eff6ff !important;
+    border-top: 2px solid var(--border-color);
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1e3a8a;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.fila-total-general-fija:hover td {
+    background-color: #dbeafe !important;
+}
+
+.inventory-container.dark-mode .fila-total-general-fija td {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+    /* Alto contraste para resaltar más en modo oscuro */
+    border-top: 2px solid var(--border-color);
+}
+
+.inventory-container.dark-mode .fila-total-general-fija:hover td {
+    background-color: #334155 !important;
+}
+
+.badge-total {
+    background: rgba(37, 99, 235, 0.2);
+    color: #1d4ed8;
+    font-weight: 700;
+}
+
+.inventory-container.dark-mode .badge-total {
+    background: #2563eb !important;
+    /* Azul más vivo para resaltar */
+    color: #ffffff !important;
+    /* Número en blanco para alto contraste */
+    font-weight: 800;
+    box-shadow: 0 0 8px rgba(37, 99, 235, 0.5);
+}
+
+/* --- Título de categoría clickeable --- */
+.category-filter-title.titulo-clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.category-filter-title.titulo-clickable:hover {
+    background-color: #e0f2fe;
+    border-color: #bae6fd;
+    transform: translateY(-1px);
+}
+
+.inventory-container.dark-mode .category-filter-title.titulo-clickable:hover {
+    background-color: #1e293b;
+    border-color: #3b82f6;
+}
+
+/* --- Estilos de columnas en la tabla detalle por guía --- */
+.detalle-tabla .prod-code {
+    color: var(--secondary-color) !important;
+}
+
+.detalle-tabla .serie-codigo {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-weight: 800;
+    color: var(--primary-blue);
+    font-size: 0.9rem;
+}
+
+.resumen-vac-table th .th-ordenable:hover {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* --- Colores de badges para disponibilidad de Equipos VAC --- */
+
+/* 1. STOCK (Verde) */
+.badge-almacenaje.disponibilidad-stock {
+    background: rgba(16, 185, 129, 0.12);
+    color: #065f46;
+    border-color: rgba(16, 185, 129, 0.25);
+}
+
+.inventory-container.dark-mode .badge-almacenaje.disponibilidad-stock {
+    background: rgba(52, 211, 153, 0.15);
+    color: #6ee7b7;
+    border-color: rgba(52, 211, 153, 0.3);
+}
+
+/* 2. PEND. (Anaranjado) */
+.badge-almacenaje.disponibilidad-pendiente {
+    background: rgba(249, 115, 22, 0.12);
+    color: #9a3412;
+    border-color: rgba(249, 115, 22, 0.25);
+}
+
+.inventory-container.dark-mode .badge-almacenaje.disponibilidad-pendiente {
+    background: rgba(251, 146, 60, 0.15);
+    color: #fed7aa;
+    border-color: rgba(251, 146, 60, 0.3);
+}
+
+/* 3. INGENIERIA (Azul) */
+.badge-almacenaje.disponibilidad-ingenieria {
+    background: rgba(37, 99, 235, 0.12);
+    color: #1e40af;
+    border-color: rgba(37, 99, 235, 0.25);
+}
+
+.inventory-container.dark-mode .badge-almacenaje.disponibilidad-ingenieria {
+    background: rgba(96, 165, 250, 0.15);
+    color: #93c5fd;
+    border-color: rgba(96, 165, 250, 0.3);
+}
+
+/* 4. NUEVA (Morado) */
+.badge-almacenaje.disponibilidad-nueva {
+    background: rgba(139, 92, 246, 0.12);
+    color: #5b21b6;
+    border-color: rgba(139, 92, 246, 0.25);
+}
+
+.inventory-container.dark-mode .badge-almacenaje.disponibilidad-nueva {
+    background: rgba(167, 139, 250, 0.15);
+    color: #c4b5fd;
+    border-color: rgba(167, 139, 250, 0.3);
+}
+
+/* 5. INTERNADOS (Amarillo) */
+.badge-almacenaje.disponibilidad-internados {
+    background: rgba(234, 179, 8, 0.12);
+    color: #854d0e;
+    border-color: rgba(234, 179, 8, 0.25);
+}
+
+.inventory-container.dark-mode .badge-almacenaje.disponibilidad-internados {
+    background: rgba(253, 224, 71, 0.15);
+    color: #fef08a;
+    border-color: rgba(253, 224, 71, 0.3);
+}
+
+/* Default */
+.badge-almacenaje.disponibilidad-default {
+    background: rgba(107, 114, 128, 0.12);
+    color: #374151;
+    border-color: rgba(107, 114, 128, 0.25);
+}
+
+.inventory-container.dark-mode .badge-almacenaje.disponibilidad-default {
+    background: rgba(156, 163, 175, 0.15);
+    color: #d1d5db;
+    border-color: rgba(156, 163, 175, 0.3);
+}
+
+/* --- Contador de actualización para Equipos VAC --- */
+.vac-contador-actualizacion {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 20px;
+    padding: 0.4rem 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #4b5563;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+.inventory-container.dark-mode .vac-contador-actualizacion {
+    background: rgba(30, 41, 59, 0.85);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #9ca3af;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+.vac-contador-actualizacion i {
+    font-size: 0.65rem;
+    color: var(--primary-blue);
+}
+
+.inventory-container.dark-mode .vac-contador-actualizacion i {
+    color: #60a5fa;
+}
