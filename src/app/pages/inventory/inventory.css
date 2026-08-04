@@ -1470,4 +1470,14 @@
 
 .inventory-container.dark-mode .vac-contador-actualizacion i {
     color: #60a5fa;
+}
+
+/* --- Alineación centrada para columnas numéricas en Equipos VAC --- */
+.celda-centrada {
+    text-align: center !important;
+}
+
+.celda-centrada .th-ordenable {
+    justify-content: center;
+    width: 100%;
 }

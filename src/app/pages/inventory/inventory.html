@@ -83,7 +83,7 @@
                 }
               </span>
             </th>
-            <th>
+            <th class="celda-centrada">
               <span class="th-ordenable" (click)="toggleOrdenResumen('cantidad')" title="Ordenar por cantidad">
                 CANTIDAD
                 @if (ordenResumenColumna() === 'cantidad') {
@@ -102,7 +102,7 @@
             <td>
               <div class="rep-nombre">{{ fila.representante }}</div>
             </td>
-            <td>
+            <td class="celda-centrada">
               <span class="badge badge-success">{{ fila.cantidad | number:'1.0-0' }}</span>
             </td>
           </tr>
@@ -119,7 +119,7 @@
           <tr class="fila-total-general-fija" (click)="verDetalleTotalGeneralVAC()"
             title="Clic para ver detalle de todos los Equipos VAC internados">
             <td><strong>TOTAL GENERAL</strong></td>
-            <td>
+            <td class="celda-centrada">
               <span class="badge badge-total"><strong>{{ totalEquiposVAC() | number:'1.0-0' }}</strong></span>
             </td>
           </tr>
@@ -137,27 +137,27 @@
             <th>CATEGORÍA</th>
             <th>CÓDIGO</th>
             <th>DESCRIPCIÓN</th>
-            <th title="Stock para Cx" style="cursor: help;">STOCK PARA CX</th>
-            <th title="Pendiente de Revisión" style="cursor: help;">PEND. REVISIÓN</th>
-            <th title="Ingeniería - 6to Piso" style="cursor: help;">INGENIERÍA - 6TO PISO</th>
-            <th title="Nueva Importación" style="cursor: help;">NUEVA IMPORTACIÓN</th>
-            <th title="Internados" style="cursor: help;">INTERNADOS</th>
-            <th title="Stock Total perteneciente a la empresa." style="cursor: help;">TOTAL</th>
+            <th title="Stock para Cx" style="cursor: help;" class="celda-centrada">STOCK PARA CX</th>
+            <th title="Pendiente de Revisión" style="cursor: help;" class="celda-centrada">PEND. REVISIÓN</th>
+            <th title="Ingeniería - 6to Piso" style="cursor: help;" class="celda-centrada">INGENIERÍA - 6TO PISO</th>
+            <th title="Nueva Importación" style="cursor: help;" class="celda-centrada">NUEVA IMPORTACIÓN</th>
+            <th title="Internados" style="cursor: help;" class="celda-centrada">INTERNADOS</th>
+            <th title="Stock Total perteneciente a la empresa." style="cursor: help;" class="celda-centrada">TOTAL</th>
             } @else {
             <th>CATEGORÍA</th>
             <th title="Referencia de la mercadería (Código de OFISIS)" style="cursor: help;">CÓDIGO</th>
             <th title="Nombre de la mercadería (Descripción de OFISIS)" style="cursor: help;">DESCRIPCIÓN</th>
-            <th title="Mercadería Disponible en Almacén." style="cursor: help;">STOCK<br>DISP. </th>
-            <th title="Mercadería en proceso de revisión, nueva importación." style="cursor: help;">PRE<br>STOCK </th>
-            <th title="Mercadería en proceso de injectado y termosellado (En Inkjet)" style="cursor: help;">INKJET</th>
-            <th title="Mercadería en empaque reacondicionado." style="cursor: help;">ACOND.</th>
-            <th title="Mercadería no esterilizado de fabrica, No cuenta con empaque de fabrica." style="cursor: help;">
+            <th title="Mercadería Disponible en Almacén." style="cursor: help;" class="celda-centrada">STOCK<br>DISP. </th>
+            <th title="Mercadería en proceso de revisión, nueva importación." style="cursor: help;" class="celda-centrada">PRE<br>STOCK </th>
+            <th title="Mercadería en proceso de injectado y termosellado (En Inkjet)" style="cursor: help;" class="celda-centrada">INKJET</th>
+            <th title="Mercadería en empaque reacondicionado." style="cursor: help;" class="celda-centrada">ACOND.</th>
+            <th title="Mercadería no esterilizado de fabrica, No cuenta con empaque de fabrica." style="cursor: help;" class="celda-centrada">
               REEST.</th>
-            <th title="Mercadería con mínimos detalles en su empaque de fabrica." style="cursor: help;">OBS. </th>
+            <th title="Mercadería con mínimos detalles en su empaque de fabrica." style="cursor: help;" class="celda-centrada">OBS. </th>
             <th title="Mercadería consignada en las entidades. Haz clic en el número para ver el detalle."
-              style="cursor: help;">CSG. </th>
-            <th title="Mercadería Venta Sujeta a Confirmación." style="cursor: help;">VTA. </th>
-            <th title="Stock Total perteneciente a la empresa." style="cursor: help;">TOTAL </th>
+              style="cursor: help;" class="celda-centrada">CSG. </th>
+            <th title="Mercadería Venta Sujeta a Confirmación." style="cursor: help;" class="celda-centrada">VTA. </th>
+            <th title="Stock Total perteneciente a la empresa." style="cursor: help;" class="celda-centrada">TOTAL </th>
             }
           </tr>
         </thead>
@@ -176,12 +176,12 @@
             <td>
               <div class="prod-desc">{{ item.prod_id?.descripcion }}</div>
             </td>
-            <td>{{ item.stock_cx }}</td>
-            <td>{{ item.pendiente_revision }}</td>
-            <td>{{ item.ingenieria }}</td>
-            <td>{{ item.nueva_importacion }}</td>
-            <td>{{ item.internados }}</td>
-            <td>
+            <td class="celda-centrada">{{ item.stock_cx }}</td>
+            <td class="celda-centrada">{{ item.pendiente_revision }}</td>
+            <td class="celda-centrada">{{ item.ingenieria }}</td>
+            <td class="celda-centrada">{{ item.nueva_importacion }}</td>
+            <td class="celda-centrada">{{ item.internados }}</td>
+            <td class="celda-centrada">
               <span class="badge" [class.badge-danger]="(item.stock_total || item.stock) <= 0"
                 [class.badge-warning]="(item.stock_total || item.stock) >= 1 && (item.stock_total || item.stock) <= 4"
                 [class.badge-success]="(item.stock_total || item.stock) >= 5">
@@ -197,14 +197,14 @@
             <td>
               <div class="prod-desc">{{ item.prod_id?.descripcion }}</div>
             </td>
-            <td>{{ item.disponible }}</td>
-            <td>{{ item.importacion }}</td>
-            <td>{{ item.inkjet }}</td>
-            <td>{{ item.acondicionado }}</td>
-            <td>{{ item.reesterilizado }}</td>
-            <td>{{ item.observados }}</td>
+            <td class="celda-centrada">{{ item.disponible }}</td>
+            <td class="celda-centrada">{{ item.importacion }}</td>
+            <td class="celda-centrada">{{ item.inkjet }}</td>
+            <td class="celda-centrada">{{ item.acondicionado }}</td>
+            <td class="celda-centrada">{{ item.reesterilizado }}</td>
+            <td class="celda-centrada">{{ item.observados }}</td>
             <!-- Celda CSG: clicable si el valor es mayor que 0 -->
-            <td>
+            <td class="celda-centrada">
               @if (item.consignacion > 0) {
               <button class="btn-csg" (click)="verDetalleCSG(item)" title="Ver detalle de consignación">
                 {{ item.consignacion }}
@@ -213,8 +213,8 @@
               {{ item.consignacion }}
               }
             </td>
-            <td>{{ item.venta_sujeta }}</td>
-            <td>
+            <td class="celda-centrada">{{ item.venta_sujeta }}</td>
+            <td class="celda-centrada">
               <span class="badge" [class.badge-danger]="(item.stock_total || item.stock) <= 0"
                 [class.badge-warning]="(item.stock_total || item.stock) >= 1 && (item.stock_total || item.stock) <= 4"
                 [class.badge-success]="(item.stock_total || item.stock) >= 5">
@@ -276,6 +276,20 @@
               title="Filtrar registros por representante">
             @if (filtroRepresentante()) {
             <button class="filtro-detalle-clear" (click)="filtroRepresentante.set('')" title="Limpiar filtro">
+              <i class="fas fa-times"></i>
+            </button>
+            }
+          </div>
+          }
+          <!-- Filtro por paciente (solo para Equipos VAC en detalle general por representante) -->
+          @if (modoCodigosFijos() && productoSeleccionado()?.prod_id?.codigo === 'TOTAL GENERAL') {
+          <div class="filtro-detalle-wrapper">
+            <i class="fas fa-user-injured filtro-detalle-icono"></i>
+            <input type="text" class="filtro-detalle-input" [ngModel]="filtroPaciente()"
+              (ngModelChange)="filtroPaciente.set($event)" placeholder="Filtrar paciente..."
+              title="Filtrar registros por paciente">
+            @if (filtroPaciente()) {
+            <button class="filtro-detalle-clear" (click)="filtroPaciente.set('')" title="Limpiar filtro">
               <i class="fas fa-times"></i>
             </button>
             }
@@ -377,7 +391,19 @@
               <th>Disponibilidad</th>
               }
               @if (modoCodigosFijos()) {
-              <th>Representante</th>
+              <th>
+                <span class="th-ordenable" (click)="toggleOrdenRepresentante()"
+                  [title]="'Al dar click se ordena por representante: ' + (ordenRepresentante() === 'asc' ? 'Creciente' : (ordenRepresentante() === 'desc' ? 'Decreciente' : 'Desactivado'))">
+                  Representante
+                  @if (ordenRepresentante() === 'asc') {
+                  <i class="fas fa-arrow-down icono-orden ascendente"></i>
+                  } @else if (ordenRepresentante() === 'desc') {
+                  <i class="fas fa-arrow-down icono-orden"></i>
+                  } @else {
+                  <i class="fas fa-sort" style="opacity: 0.5; margin-left: 4px; font-size: 0.75rem;"></i>
+                  }
+                </span>
+              </th>
               <th>Cliente</th>
               <th>Paciente</th>
               }
@@ -395,9 +421,9 @@
               @if (modoCodigosFijos() && mostrarKardexOriginal()) {
               <th>Sector</th>
               }
-              <th>Días Empleados</th>
+              <th class="celda-centrada">Días Empleados</th>
               @if (!modoCodigosFijos() || mostrarKardexOriginal()) {
-              <th>Cantidad</th>
+              <th class="celda-centrada">Cantidad</th>
               }
             </tr>
           </thead>
@@ -443,14 +469,14 @@
               @if (modoCodigosFijos() && mostrarKardexOriginal()) {
               <td>{{ reg.sector || '—' }}</td>
               }
-              <td>
+              <td class="celda-centrada">
                 <span class="dias-empleados-valor">
                   {{ calcularDiasEmpleados(reg.fecha_movimiento) }}
                   {{ calcularDiasEmpleados(reg.fecha_movimiento) === 1 ? 'día' : 'días' }}
                 </span>
               </td>
               @if (!modoCodigosFijos() || mostrarKardexOriginal()) {
-              <td class="cantidad-celda">
+              <td class="cantidad-celda celda-centrada">
                 <span class="badge" [class.badge-success]="reg.cantidad > 0" [class.badge-danger]="reg.cantidad <= 0">
                   {{ reg.cantidad | number:'1.0-0' }}
                 </span>

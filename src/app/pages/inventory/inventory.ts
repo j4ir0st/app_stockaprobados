@@ -72,8 +72,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
   puedeVerTablaActualVAC = computed(() => {
     const usuario = this.authService.currentUser();
     if (!usuario) return false;
-    const area = usuario.area_id || '';
-    return area === 'Atenciones' || area === 'Desarrollo Software';
+    const areaId = (usuario.area_id || '').toLowerCase();
+    const areaNombre = (usuario.area || '').toLowerCase();
+    return areaId === 'atenciones' || areaNombre === 'atenciones' || areaId === 'desarrollo software' || areaNombre === 'desarrollo software';
   });
 
   ordenResumenColumna = signal<'cantidad' | 'representante'>('cantidad');
@@ -145,6 +146,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
   filtroDeposito = signal('');            // Filtro de texto por nombre de depósito
   filtroRepresentante = signal('');       // Filtro de texto por representante
   filtroDisponibilidad = signal('');      // Filtro de texto por disponibilidad (sólo para Equipos VAC)
+  filtroPaciente = signal('');            // Filtro de texto por paciente (sólo para Equipos VAC en vista detalle general)
+  ordenRepresentante = signal<'asc' | 'desc' | null>(null); // Orden por representante: asc, desc o deshabilitado (null)
   mostrarCodigoProductoDetalle = signal(true); // Controla la visibilidad de la columna Código Producto en detalle
   tiempoRestanteActualizacion = signal(60); // Segundos restantes para la actualización automática de Equipos VAC
   private intervaloActualizacion: any;    // Referencia al intervalo del temporizador
@@ -179,8 +182,26 @@ export class InventoryComponent implements OnInit, OnDestroy {
     if (filtroPorDisponibilidad) {
       items = items.filter(reg => (reg.disponibilidad || '').toLowerCase().includes(filtroPorDisponibilidad));
     }
+
+    // Filtrar por paciente en memoria (búsqueda parcial sin distinción de mayúsculas)
+    const filtroPorPaciente = this.filtroPaciente().trim().toLowerCase();
+    if (filtroPorPaciente) {
+      items = items.filter(reg => (reg.paciente || '').toLowerCase().includes(filtroPorPaciente));
+    }
+
     // Ordenar en memoria sin hacer consultas al servidor
     return [...items].sort((a, b) => {
+      // Orden compuesto: representante primero (si está activo)
+      if (this.modoCodigosFijos() && this.ordenRepresentante() !== null) {
+        const repA = (a.representante || '').trim().toLowerCase();
+        const repB = (b.representante || '').trim().toLowerCase();
+        if (repA !== repB) {
+          const factor = this.ordenRepresentante() === 'asc' ? 1 : -1;
+          return repA.localeCompare(repB) * factor;
+        }
+      }
+
+      // Orden secundario o principal por fecha de movimiento
       const fechaA = new Date(a.fecha_movimiento || 0).getTime();
       const fechaB = new Date(b.fecha_movimiento || 0).getTime();
       return this.ordenFechaAscendente() ? fechaA - fechaB : fechaB - fechaA;
@@ -1144,6 +1165,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.filtroDeposito.set('');
     this.filtroRepresentante.set('');
     this.filtroDisponibilidad.set('');
+    this.filtroPaciente.set('');
+    this.ordenRepresentante.set(null);
     this.errorDetalle.set(null);
 
     // Si estamos en modo de códigos fijos (Equipos VAC), refrescar la tabla principal al regresar
@@ -1260,7 +1283,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Alterna entre el kardex original y la vista agrupada, limpiando el filtro de depósito y de disponibilidad si se oculta en el Total General.
+   * Alterna entre el kardex original y la vista agrupada, limpiando el filtro de depósito, disponibilidad y paciente si se oculta en el Total General.
    */
   toggleKardexOriginal(): void {
     const nuevoValor = !this.mostrarKardexOriginal();
@@ -1269,7 +1292,22 @@ export class InventoryComponent implements OnInit, OnDestroy {
       this.filtroDeposito.set('');
       if (this.productoSeleccionado()?.prod_id?.codigo === 'TOTAL GENERAL') {
         this.filtroDisponibilidad.set('');
+        this.filtroPaciente.set('');
       }
+    }
+  }
+
+  /**
+   * Alterna el orden por representante en memoria: deshabilitado (null) -> asc -> desc -> deshabilitado (null).
+   */
+  toggleOrdenRepresentante(): void {
+    const actual = this.ordenRepresentante();
+    if (actual === null) {
+      this.ordenRepresentante.set('asc');
+    } else if (actual === 'asc') {
+      this.ordenRepresentante.set('desc');
+    } else {
+      this.ordenRepresentante.set(null);
     }
   }
 

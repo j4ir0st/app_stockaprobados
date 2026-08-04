@@ -22,7 +22,7 @@ export class ConfigService {
 
   public readonly menuItems = [
     { label: 'Stock General', route: '/inventory', icon: 'assets/images/casa-nueva.png', isAsset: true },
-    { label: 'Heridas & Quemados', route: '/quemados', icon: 'assets/images/Quemados y Heridas-icon.png', isAsset: true, typeKey: 'HQ' },
+    { label: 'H&Q y Varios', route: '/quemados', icon: 'assets/images/Quemados y Heridas-icon.png', isAsset: true, typeKey: 'HQ' },
     { label: 'Traumatología', route: '/trauma', icon: 'assets/images/Traumatología-icon.png', isAsset: true, typeKey: 'TR' },
     { label: 'Neurocirugía', route: '/neuro', icon: 'assets/images/Neurocirugía-icon.png', isAsset: true, typeKey: 'NR' },
     { label: 'T. de Sueño y Apnea', route: '/sueno', icon: 'assets/images/Terapia de Sueño y Apnea-icon.png', isAsset: true, typeKey: 'TS' },
@@ -43,7 +43,7 @@ export class ConfigService {
 
   // Mapa de usuarios con acceso restringido a opciones específicas del menú
   private readonly restriccionesPorUsuario: Record<string, string[]> = {
-    'dfigueroa': ['Stock General', 'Heridas & Quemados'],
+    'dfigueroa': ['Stock General', 'H&Q y Varios'],
     'kcarlevarino': ['Stock General', 'Traumatología'],
     'mrodriguez': ['Stock General', 'Traumatología'],
     'agomez': ['Stock General', 'T. de Sueño y Apnea'],
