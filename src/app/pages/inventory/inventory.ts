@@ -549,7 +549,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           let fullCode = reg.prod || reg.codigo || reg.prod_id?.codigo || '';
           let cleanCode = fullCode.includes(':') ? fullCode.split(':')[1].trim() : fullCode.trim();
           if (cleanCode) {
-            const cant = Math.round(Number(reg.cantidad || 0));
+            const cant = Math.round(Number(reg.cant_pend || 0));
             mapaTransito.set(cleanCode, (mapaTransito.get(cleanCode) || 0) + cant);
           }
         });
@@ -822,7 +822,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           let fullCode = reg.prod || reg.codigo || reg.prod_id?.codigo || '';
           let cleanCode = fullCode.includes(':') ? fullCode.split(':')[1].trim() : fullCode.trim();
           if (cleanCode) {
-            const cant = Math.round(Number(reg.cantidad || 0));
+            const cant = Math.round(Number(reg.cant_pend || 0));
             mapaTransitoExcel.set(cleanCode, (mapaTransitoExcel.get(cleanCode) || 0) + cant);
           }
         });
