@@ -37,6 +37,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   // Estado de carga y paginación
   loading = signal(false);
+  cargandoTransito = signal(false);
   nextUrl = signal<string | null>(null);
   prevUrl = signal<string | null>(null);
   totalCount = signal(0);
@@ -79,6 +80,33 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   ordenResumenColumna = signal<'cantidad' | 'representante'>('cantidad');
   ordenResumenDireccion = signal<'asc' | 'desc'>('desc'); // default: de mayor a menor (desc)
+
+  // Estado del ordenamiento por columna para la tabla principal (StockAprobado)
+  ordenStockColumna = signal<'disponible' | 'stock' | null>(null);
+  ordenStockDireccion = signal<'asc' | 'desc' | null>(null);
+
+  /**
+   * Alterna el ordenamiento por las columnas 'disponible' o 'stock'.
+   * Estado 1: desc (flecha abajo) -> ordering=-disponible / ordering=-stock
+   * Estado 2: asc (flecha arriba) -> ordering=disponible / ordering=stock
+   * Estado 3: deshabilitado (flecha doble) -> sin parámetro ordering
+   * @param columna Columna seleccionada ('disponible' | 'stock')
+   */
+  toggleOrdenStock(columna: 'disponible' | 'stock'): void {
+    if (this.ordenStockColumna() === columna) {
+      if (this.ordenStockDireccion() === 'desc') {
+        this.ordenStockDireccion.set('asc');
+      } else {
+        // Si estaba en asc, se deshabilita el ordenamiento
+        this.ordenStockColumna.set(null);
+        this.ordenStockDireccion.set(null);
+      }
+    } else {
+      this.ordenStockColumna.set(columna);
+      this.ordenStockDireccion.set('desc');
+    }
+    this.cargarStock();
+  }
 
   toggleOrdenResumen(columna: 'cantidad' | 'representante'): void {
     if (this.ordenResumenColumna() === columna) {
@@ -235,6 +263,10 @@ export class InventoryComponent implements OnInit, OnDestroy {
       // Limpiar el buscador cada vez que cambien los filtros de la URL (navegación desde sidebar)
       this.searchTerm.set('');
 
+      // Deshabilitar por defecto el parámetro ordering al cambiar de ruta/opción de menú
+      this.ordenStockColumna.set(null);
+      this.ordenStockDireccion.set(null);
+
       const categoria = params['prod_id__cat_id__nombre'];
       const tipoCategoria = params['prod_id__cat_id__tipo_id__nombre'] || params['prod_id__cat_id__tipo'];
       const familia = params['prod_id__cat_id__familia_id__nombre'];
@@ -309,12 +341,22 @@ export class InventoryComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Obtiene la query combinada de búsqueda y filtros activos.
+   * Obtiene la query combinada de búsqueda, filtros activos y parámetro de ordenamiento.
    */
   private getCombinedQuery(): string {
     const term = this.searchTerm();
     const filters = this.currentFiltersQuery();
-    return (term ? `&buscar=${encodeURIComponent(term)}` : '') + filters;
+    const columna = this.ordenStockColumna();
+    const direccion = this.ordenStockDireccion();
+
+    let query = (term ? `&buscar=${encodeURIComponent(term)}` : '') + filters;
+
+    if (columna && direccion) {
+      const valorOrdering = direccion === 'desc' ? `-${columna}` : columna;
+      query += `&ordering=${encodeURIComponent(valorOrdering)}`;
+    }
+
+    return query;
   }
 
   /**
@@ -491,6 +533,45 @@ export class InventoryComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Carga asíncronamente la mercancía en tránsito desde la API SI_Transito con top=1000.
+   * Suma el campo 'cantidad' por código de producto coincidente y actualiza la lista stockItems.
+   */
+  cargarTransito(): void {
+    this.cargandoTransito.set(true);
+
+    this.apiService.getSITransito(1000).subscribe({
+      next: (data) => {
+        const transitoList = data?.results || (Array.isArray(data) ? data : []);
+        const mapaTransito = new Map<string, number>();
+
+        transitoList.forEach((reg: any) => {
+          let fullCode = reg.prod || reg.codigo || reg.prod_id?.codigo || '';
+          let cleanCode = fullCode.includes(':') ? fullCode.split(':')[1].trim() : fullCode.trim();
+          if (cleanCode) {
+            const cant = Math.round(Number(reg.cantidad || 0));
+            mapaTransito.set(cleanCode, (mapaTransito.get(cleanCode) || 0) + cant);
+          }
+        });
+
+        // Actualizar la lista actual de stockItems con el valor de tránsito (o 0 si no tiene)
+        const updatedItems = this.stockItems().map(item => {
+          const code = item.prod_id?.codigo || '';
+          const transitoSum = mapaTransito.get(code) || 0;
+          return { ...item, trans: transitoSum };
+        });
+
+        this.stockItems.set(updatedItems);
+        this.cargandoTransito.set(false);
+        console.log('Tránsito cargado exitosamente. Ítems procesados:', transitoList.length);
+      },
+      error: (err) => {
+        console.error('Error al cargar mercancía en tránsito (SI_Transito):', err);
+        this.cargandoTransito.set(false);
+      }
+    });
+  }
+
   private procesarResultados(data: any): void {
     console.log('Procesando resultados:', data);
     const results = data.results || (Array.isArray(data) ? data : []);
@@ -563,7 +644,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
         existing.internados = (existing.internados || 0) + (item.internados || 0);
       } else {
         // Clonar y limpiar el código
-        const newItem = { ...item };
+        const newItem = { ...item, trans: 0 };
         if (newItem.prod_id) {
           newItem.prod_id = { ...newItem.prod_id, codigo: cleanCode };
         }
@@ -584,6 +665,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
     this.loading.set(false);
     console.log('Carga finalizada. Items originales:', results.length, 'Agregados:', finalResults.length);
+
+    // Cargar información de mercancía en tránsito asíncronamente si no está en modo de códigos fijos
+    if (!this.modoCodigosFijos()) {
+      this.cargarTransito();
+    }
   }
 
   private manejarError(err: any): void {
@@ -727,6 +813,23 @@ export class InventoryComponent implements OnInit, OnDestroy {
         });
       }
 
+      // Obtener mercancía en tránsito para la exportación a Excel
+      let mapaTransitoExcel = new Map<string, number>();
+      try {
+        const transitoResp: any = await firstValueFrom(this.apiService.getSITransito(1000));
+        const transitoResults = transitoResp?.results || (Array.isArray(transitoResp) ? transitoResp : []);
+        transitoResults.forEach((reg: any) => {
+          let fullCode = reg.prod || reg.codigo || reg.prod_id?.codigo || '';
+          let cleanCode = fullCode.includes(':') ? fullCode.split(':')[1].trim() : fullCode.trim();
+          if (cleanCode) {
+            const cant = Math.round(Number(reg.cantidad || 0));
+            mapaTransitoExcel.set(cleanCode, (mapaTransitoExcel.get(cleanCode) || 0) + cant);
+          }
+        });
+      } catch (e) {
+        console.warn('No se pudieron obtener datos de tránsito para Excel:', e);
+      }
+
       this.exportProgress.set(100);
 
       // Formatear los datos para el Excel (Usando los datos agregados si están cargados)
@@ -745,6 +848,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           'OBSERVADOS': item.observados || 0,
           'CONSIGNACION': item.consignacion || 0,
           'VENTA SUJETA': item.venta_sujeta || 0,
+          'TRANSITO': mapaTransitoExcel.get(cleanCode) || item.trans || 0,
           'STOCK TOTAL': item.stock_total || item.stock || 0
         };
       });
@@ -763,6 +867,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           ex['OBSERVADOS'] += item['OBSERVADOS'];
           ex['CONSIGNACION'] += item['CONSIGNACION'];
           ex['VENTA SUJETA'] += item['VENTA SUJETA'];
+          ex['TRANSITO'] += item['TRANSITO'];
           ex['STOCK TOTAL'] += item['STOCK TOTAL'];
         } else {
           excelMap.set(key, { ...item });

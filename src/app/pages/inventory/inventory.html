@@ -147,7 +147,17 @@
             <th>CATEGORÍA</th>
             <th title="Referencia de la mercadería (Código de OFISIS)" style="cursor: help;">CÓDIGO</th>
             <th title="Nombre de la mercadería (Descripción de OFISIS)" style="cursor: help;">DESCRIPCIÓN</th>
-            <th title="Mercadería Disponible en Almacén." style="cursor: help;" class="celda-centrada">STOCK<br>DISP. </th>
+            <th title="Mercadería Disponible en Almacén." style="cursor: help;" class="celda-centrada">
+              <span class="th-ordenable" (click)="toggleOrdenStock('disponible')" title="Ordenar por stock disponible">
+                STOCK<br>DISP.
+                @if (ordenStockColumna() === 'disponible') {
+                <i class="fas" [class.fa-arrow-up]="ordenStockDireccion() === 'asc'"
+                  [class.fa-arrow-down]="ordenStockDireccion() === 'desc'"></i>
+                } @else {
+                <i class="fas fa-sort" style="opacity: 0.5;"></i>
+                }
+              </span>
+            </th>
             <th title="Mercadería en proceso de revisión, nueva importación." style="cursor: help;" class="celda-centrada">PRE<br>STOCK </th>
             <th title="Mercadería en proceso de injectado y termosellado (En Inkjet)" style="cursor: help;" class="celda-centrada">INKJET</th>
             <th title="Mercadería en empaque reacondicionado." style="cursor: help;" class="celda-centrada">ACOND.</th>
@@ -157,7 +167,18 @@
             <th title="Mercadería consignada en las entidades. Haz clic en el número para ver el detalle."
               style="cursor: help;" class="celda-centrada">CSG. </th>
             <th title="Mercadería Venta Sujeta a Confirmación." style="cursor: help;" class="celda-centrada">VTA. </th>
-            <th title="Stock Total perteneciente a la empresa." style="cursor: help;" class="celda-centrada">TOTAL </th>
+            <th title="Mercadería en Tránsito." style="cursor: help;" class="celda-centrada">TRANS.</th>
+            <th title="Stock Total perteneciente a la empresa." style="cursor: help;" class="celda-centrada">
+              <span class="th-ordenable" (click)="toggleOrdenStock('stock')" title="Ordenar por stock total">
+                TOTAL
+                @if (ordenStockColumna() === 'stock') {
+                <i class="fas" [class.fa-arrow-up]="ordenStockDireccion() === 'asc'"
+                  [class.fa-arrow-down]="ordenStockDireccion() === 'desc'"></i>
+                } @else {
+                <i class="fas fa-sort" style="opacity: 0.5;"></i>
+                }
+              </span>
+            </th>
             }
           </tr>
         </thead>
@@ -214,6 +235,13 @@
               }
             </td>
             <td class="celda-centrada">{{ item.venta_sujeta }}</td>
+            <td class="celda-centrada">
+              @if (cargandoTransito()) {
+              <i class="fas fa-spinner fa-spin" style="color: var(--primary-blue, #2563eb); font-size: 0.85rem;" title="Cargando tránsito..."></i>
+              } @else {
+              {{ item.trans || 0 }}
+              }
+            </td>
             <td class="celda-centrada">
               <span class="badge" [class.badge-danger]="(item.stock_total || item.stock) <= 0"
                 [class.badge-warning]="(item.stock_total || item.stock) >= 1 && (item.stock_total || item.stock) <= 4"

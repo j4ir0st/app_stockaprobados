@@ -139,6 +139,17 @@ export class ApiService {
   }
 
   /**
+   * Obtiene la información de mercancía en tránsito desde la API SI_Transito.
+   * @param top Límite de resultados (por defecto 1000 para cargar todo en una sola consulta).
+   */
+  getSITransito(top: number = 1000): Observable<any> {
+    const params = new HttpParams()
+      .set('format', 'json')
+      .set('top', top.toString());
+    return this.http.get<any>(`${this.baseUrl}SI_Transito/`, { params });
+  }
+
+  /**
    * Ajusta una URL absoluta (del backend) para que use el proxy local '/api-proxy/'.
    * Esto evita problemas de CORS y "localhost" en desarrollo y producción.
    */
