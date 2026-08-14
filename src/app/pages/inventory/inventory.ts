@@ -73,9 +73,10 @@ export class InventoryComponent implements OnInit, OnDestroy {
   puedeVerTablaActualVAC = computed(() => {
     const usuario = this.authService.currentUser();
     if (!usuario) return false;
+    const username = (usuario.username || '').toLowerCase();
     const areaId = (usuario.area_id || '').toLowerCase();
     const areaNombre = (usuario.area || '').toLowerCase();
-    return areaId === 'atenciones' || areaNombre === 'atenciones' || areaId === 'desarrollo software' || areaNombre === 'desarrollo software';
+    return username === 'nmalasquez' || areaId === 'atenciones' || areaNombre === 'atenciones' || areaId === 'desarrollo software' || areaNombre === 'desarrollo software';
   });
 
   ordenResumenColumna = signal<'cantidad' | 'representante'>('cantidad');
