@@ -83,17 +83,17 @@ export class InventoryComponent implements OnInit, OnDestroy {
   ordenResumenDireccion = signal<'asc' | 'desc'>('desc'); // default: de mayor a menor (desc)
 
   // Estado del ordenamiento por columna para la tabla principal (StockAprobado)
-  ordenStockColumna = signal<'disponible' | 'stock' | null>(null);
+  ordenStockColumna = signal<string | null>(null);
   ordenStockDireccion = signal<'asc' | 'desc' | null>(null);
 
   /**
-   * Alterna el ordenamiento por las columnas 'disponible' o 'stock'.
-   * Estado 1: desc (flecha abajo) -> ordering=-disponible / ordering=-stock
-   * Estado 2: asc (flecha arriba) -> ordering=disponible / ordering=stock
+   * Alterna el ordenamiento por cualquier columna numérica de la tabla.
+   * Estado 1: desc (flecha abajo) -> ordering=-columna
+   * Estado 2: asc (flecha arriba) -> ordering=columna
    * Estado 3: deshabilitado (flecha doble) -> sin parámetro ordering
-   * @param columna Columna seleccionada ('disponible' | 'stock')
+   * @param columna Identificador de la columna seleccionada
    */
-  toggleOrdenStock(columna: 'disponible' | 'stock'): void {
+  toggleOrdenStock(columna: string): void {
     if (this.ordenStockColumna() === columna) {
       if (this.ordenStockDireccion() === 'desc') {
         this.ordenStockDireccion.set('asc');
@@ -514,6 +514,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
    * @param urlOrSearch URL opcional para paginación (next/prev) o término de búsqueda.
    */
   cargarStock(urlOrSearch?: string): void {
+    if (this.ordenStockColumna() === 'trans' && !this.modoCodigosFijos()) {
+      this.cargarStockOrdenadoPorTransito(urlOrSearch);
+      return;
+    }
+
     this.loading.set(true);
     this.stockItems.set([]);
 
@@ -532,6 +537,168 @@ export class InventoryComponent implements OnInit, OnDestroy {
       next: (data) => this.procesarResultados(data),
       error: (err) => this.manejarError(err)
     });
+  }
+
+  /**
+   * Carga especial cuando el ordenamiento activo es por la columna TRANS. (Tránsito).
+   * 1. Consulta SI_Transito paginado (sin top=1000, 60 en 60 por defecto por la API de DRF) con ?ordering=cant_pend o ?ordering=-cant_pend.
+   * 2. Consolida la página actual por código de producto único acumulando cant_pend.
+   * 3. Consulta StockAprobado en lotes de máximo 10 productos por consulta (&prod_id__codigo__in=...).
+   * 4. Mantiene la paginación activa utilizando las URLs next/prev devueltas por SI_Transito para una respuesta ultra rápida.
+   * 5. Si SI_Transito no contiene registros (count 0), muestra la tabla StockAprobado estándar sin filtro.
+   */
+  async cargarStockOrdenadoPorTransito(urlOrSearch?: string): Promise<void> {
+    this.loading.set(true);
+    this.cargandoTransito.set(true);
+
+    const dir = this.ordenStockDireccion() || 'desc';
+    const orderingVal = dir === 'desc' ? '-cant_pend' : 'cant_pend';
+
+    // Determinar los parámetros o URL de paginación para SI_Transito
+    let paramsOrUrl: any;
+    if (urlOrSearch && (urlOrSearch.includes('SI_Transito') || urlOrSearch.includes('page='))) {
+      paramsOrUrl = urlOrSearch;
+      const match = urlOrSearch.match(/page=(\d+)/);
+      if (match) {
+        this.paginaActual.set(parseInt(match[1], 10));
+      }
+    } else {
+      this.paginaActual.set(1);
+      paramsOrUrl = { ordering: orderingVal };
+    }
+
+    try {
+      // 1. Consultar SI_Transito con la paginación estándar de la API (60 por página por defecto)
+      const transitoResp = await firstValueFrom(this.apiService.getSITransito(paramsOrUrl));
+      const transitoList = transitoResp?.results || (Array.isArray(transitoResp) ? transitoResp : []);
+      const totalCountTrans = transitoResp?.count || transitoList.length;
+
+      // Actualizar URLs de paginación directa provenientes de SI_Transito
+      this.nextUrl.set(transitoResp?.next ? this.apiService.fixUrl(transitoResp.next) : null);
+      this.prevUrl.set(transitoResp?.previous ? this.apiService.fixUrl(transitoResp.previous) : null);
+
+      // Si la tabla de tránsito está completamente vacía (count 0), mostrar StockAprobado completo como fallback
+      if (transitoList.length === 0) {
+        const fallbackQuery = '?format=json';
+        const stockResp = await firstValueFrom(this.apiService.getStockAprobado(fallbackQuery));
+        this.procesarResultados(stockResp);
+        return;
+      }
+
+      // 2. Consolidar por código limpio en la página actual y mantener la lista de códigos ordenados
+      const mapaTransito = new Map<string, { cant: number; desc: string; rawCode: string }>();
+      const codigosUnicos: string[] = [];
+
+      transitoList.forEach((reg: any) => {
+        let fullCode = (reg.prod || reg.codigo || reg.prod_id?.codigo || '').trim();
+        if (!fullCode) return;
+        let cleanCode = fullCode.includes(':') ? fullCode.split(':')[1].trim() : fullCode.trim();
+        const cant = Math.round(Number(reg.cant_pend || 0));
+
+        if (!mapaTransito.has(cleanCode)) {
+          codigosUnicos.push(cleanCode);
+          mapaTransito.set(cleanCode, {
+            cant: cant,
+            desc: reg.descripcion || reg.prod_desc || cleanCode,
+            rawCode: fullCode
+          });
+        } else {
+          const itemTrans = mapaTransito.get(cleanCode)!;
+          itemTrans.cant += cant;
+        }
+      });
+
+      // 3. Dividir los códigos de la página en lotes de máximo 10 productos
+      const BATCH_SIZE = 10;
+      const lotesCodigos: string[][] = [];
+      for (let i = 0; i < codigosUnicos.length; i += BATCH_SIZE) {
+        lotesCodigos.push(codigosUnicos.slice(i, i + BATCH_SIZE));
+      }
+
+      // 4. Realizar consultas en simultáneo a StockAprobado en bloques de 10 productos
+      const promesasStock = lotesCodigos.map(lote => {
+        const codigosParaQuery = new Set<string>();
+        lote.forEach(c => {
+          codigosParaQuery.add(c);
+          const raw = mapaTransito.get(c)?.rawCode;
+          if (raw) codigosParaQuery.add(raw);
+        });
+        const codigosParam = Array.from(codigosParaQuery).map(c => encodeURIComponent(c)).join(',');
+        const queryLote = `&prod_id__codigo__in=${codigosParam}`;
+        return firstValueFrom(this.apiService.getStockAprobado(queryLote)).catch(err => {
+          console.warn('Error al consultar lote de StockAprobado:', err);
+          return { results: [] };
+        });
+      });
+
+      const respuestasLotes = await Promise.all(promesasStock);
+
+      // 5. Agrupar los resultados recibidos desde StockAprobado
+      const stockMap = new Map<string, any>();
+      respuestasLotes.forEach((res: any) => {
+        const items = res?.results || (Array.isArray(res) ? res : []);
+        items.forEach((item: any) => {
+          let fullCode = item.prod_id?.codigo || '';
+          let cleanCode = fullCode.includes(':') ? fullCode.split(':')[1].trim() : fullCode.trim();
+          const key = cleanCode || fullCode;
+
+          if (stockMap.has(key)) {
+            const existing = stockMap.get(key);
+            existing.disponible = (existing.disponible || 0) + (item.disponible || 0);
+            existing.reservado = (existing.reservado || 0) + (item.reservado || 0);
+            existing.importacion = (existing.importacion || 0) + (item.importacion || 0);
+            existing.acondicionado = (existing.acondicionado || 0) + (item.acondicionado || 0);
+            existing.reesterilizado = (existing.reesterilizado || 0) + (item.reesterilizado || 0);
+            existing.observados = (existing.observados || 0) + (item.observados || 0);
+            existing.consignacion = (existing.consignacion || 0) + (item.consignacion || 0);
+            existing.venta_sujeta = (existing.venta_sujeta || 0) + (item.venta_sujeta || 0);
+            existing.stock = (existing.stock || 0) + (item.stock || 0);
+          } else {
+            const newItem = { ...item };
+            if (newItem.prod_id) {
+              newItem.prod_id = { ...newItem.prod_id, codigo: cleanCode };
+            }
+            newItem.displayCategory = newItem.displayCategory || newItem.prod_id?.cat_id?.nombre || '-';
+            stockMap.set(key, newItem);
+          }
+        });
+      });
+
+      // 6. Construir la lista final EXCLUSIVAMENTE para los productos de la página actual de tránsito
+      const finalItems: any[] = [];
+      codigosUnicos.forEach(code => {
+        const infoTrans = mapaTransito.get(code)!;
+        const baseItem = stockMap.get(code) || {
+          id: Math.random(),
+          displayCategory: '-',
+          prod_id: {
+            codigo: code,
+            descripcion: infoTrans.desc || code,
+            tipo: 'SG-IM'
+          },
+          disponible: 0,
+          reservado: 0,
+          importacion: 0,
+          acondicionado: 0,
+          reesterilizado: 0,
+          observados: 0,
+          consignacion: 0,
+          venta_sujeta: 0,
+          stock: 0
+        };
+        baseItem.trans = infoTrans.cant;
+        finalItems.push(baseItem);
+      });
+
+      // 7. Mostrar la tabla con los ítems de la página actual y mantener la paginación total
+      this.stockItems.set(finalItems);
+      this.totalCount.set(totalCountTrans);
+    } catch (err) {
+      console.error('Error al cargar stock ordenado por tránsito:', err);
+    } finally {
+      this.loading.set(false);
+      this.cargandoTransito.set(false);
+    }
   }
 
   /**
@@ -843,6 +1010,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           'CÓDIGO': cleanCode,
           'DESCRIPCIÓN': item.prod_id?.descripcion || '',
           'DISPONIBLE': item.disponible || 0,
+          'RESERVADO': item.reservado || 0,
           'IMPORTACION': item.importacion || 0,
           'ACONDICIONADO': item.acondicionado || 0,
           'REESTERILIZADO': item.reesterilizado || 0,
@@ -862,6 +1030,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
         if (excelMap.has(key)) {
           const ex = excelMap.get(key);
           ex['DISPONIBLE'] += item['DISPONIBLE'];
+          ex['RESERVADO'] += item['RESERVADO'];
           ex['IMPORTACION'] += item['IMPORTACION'];
           ex['ACONDICIONADO'] += item['ACONDICIONADO'];
           ex['REESTERILIZADO'] += item['REESTERILIZADO'];

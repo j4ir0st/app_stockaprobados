@@ -140,12 +140,34 @@ export class ApiService {
 
   /**
    * Obtiene la información de mercancía en tránsito desde la API SI_Transito.
-   * @param top Límite de resultados (por defecto 1000 para cargar todo en una sola consulta).
+   * Acepta una URL completa de paginación, un límite numérico (top) o un objeto de parámetros (ordering, page, etc.).
    */
-  getSITransito(top: number = 1000): Observable<any> {
-    const params = new HttpParams()
-      .set('format', 'json')
-      .set('top', top.toString());
+  getSITransito(paramsOrUrl?: any): Observable<any> {
+    if (typeof paramsOrUrl === 'string') {
+      let finalUrl = this.fixUrl(paramsOrUrl);
+      if (!finalUrl.includes('format=json')) {
+        finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'format=json';
+      }
+      return this.http.get<any>(finalUrl);
+    }
+
+    let params = new HttpParams().set('format', 'json');
+    if (typeof paramsOrUrl === 'number') {
+      params = params.set('top', paramsOrUrl.toString());
+    } else if (typeof paramsOrUrl === 'object' && paramsOrUrl !== null) {
+      if (paramsOrUrl.top) {
+        params = params.set('top', paramsOrUrl.top.toString());
+      }
+      if (paramsOrUrl.ordering) {
+        params = params.set('ordering', paramsOrUrl.ordering);
+      }
+      if (paramsOrUrl.buscar) {
+        params = params.set('buscar', paramsOrUrl.buscar);
+      }
+      if (paramsOrUrl.page) {
+        params = params.set('page', paramsOrUrl.page.toString());
+      }
+    }
     return this.http.get<any>(`${this.baseUrl}SI_Transito/`, { params });
   }
 
@@ -153,7 +175,7 @@ export class ApiService {
    * Ajusta una URL absoluta (del backend) para que use el proxy local '/api-proxy/'.
    * Esto evita problemas de CORS y "localhost" en desarrollo y producción.
    */
-  private fixUrl(url: string): string {
+  public fixUrl(url: string): string {
     if (!url) return '';
 
     return url.replace(/^https?:\/\/[^\/]+/, '');
