@@ -495,6 +495,43 @@
 }
 
 /* =========================================
+   Botón VTA clicable en la tabla principal
+   ========================================= */
+.btn-vta {
+    background: rgba(15, 118, 110, 0.12);
+    color: #115e59;
+    border: 1px solid rgba(15, 118, 110, 0.3);
+    border-radius: 6px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 32px;
+    text-align: center;
+}
+
+.btn-vta:hover {
+    background: #0f766e;
+    color: white;
+    border-color: #0f766e;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(15, 118, 110, 0.3);
+}
+
+.inventory-container.dark-mode .btn-vta {
+    background: rgba(45, 212, 191, 0.15);
+    color: #99f6e4;
+    border-color: rgba(45, 212, 191, 0.35);
+}
+
+.inventory-container.dark-mode .btn-vta:hover {
+    background: #0d9488;
+    color: white;
+    border-color: #0d9488;
+}
+
+/* =========================================
    Vista de Detalle CSG
    ========================================= */
 .detalle-csg-container {

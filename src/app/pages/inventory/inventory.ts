@@ -60,8 +60,14 @@ export class InventoryComponent implements OnInit, OnDestroy {
   // Indica si el modo actual es de códigos fijos (ej: Equipos VAC) — habilita clic en toda la fila
   modoCodigosFijos = signal(false);
 
-  // Estado de la vista de detalle CSG
+  // Estado de la vista de detalle CSG / VTA
   vistaDetalle = signal(false);
+  tipoDetalle = signal<'CSG' | 'VTA'>('CSG');
+  tituloDetalleSeccion = computed(() => {
+    return this.tipoDetalle() === 'VTA'
+      ? 'Detalle de Venta Sujeta a Confirmación'
+      : 'Detalle de Consignación';
+  });
   productoSeleccionado = signal<any>(null);
   itemsConsignacion = signal<any[]>([]);       // Registros agregados con cantidad > 0
   itemsConsignacionCeros = signal<any[]>([]);  // Registros agregados que quedaron en cero
@@ -1073,13 +1079,33 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   /**
    * Abre la tarjeta de detalle CSG consultando la tabla Stock_ERP.
-   * Carga todas las páginas disponibles en paralelo usando top=1000 para minimizar consultas.
    * @param item Registro del inventario con campo consignacion > 0.
    */
   async verDetalleCSG(item: any): Promise<void> {
-    const codigo = item.prod_id?.codigo;
-    if (!codigo || !item.consignacion) return;
+    await this.cargarDetalleStockERP(item, 'CONSIGNACION', 'CSG');
+  }
 
+  /**
+   * Abre la tarjeta de detalle VTA (Venta Sujeta a Confirmación) consultando la tabla Stock_ERP.
+   * @param item Registro del inventario con campo venta_sujeta > 0.
+   */
+  async verDetalleVTA(item: any): Promise<void> {
+    await this.cargarDetalleStockERP(item, 'VTA. SUJET. A CONF(MER)/BIENES DE USO', 'VTA');
+  }
+
+  /**
+   * Método privado reusable para consultar el detalle en Stock_ERP según el tipo de almacenaje y la vista seleccionada.
+   * Evita la duplicación de código según las reglas de buenas prácticas del proyecto.
+   * @param item Registro seleccionado.
+   * @param tipoAlmacenaje Filtro de almacenaje para la API (ej: 'CONSIGNACION' o 'VTA. SUJET. A CONF(MER)/BIENES DE USO').
+   * @param tipoDetalle Modo de detalle ('CSG' o 'VTA').
+   */
+  private async cargarDetalleStockERP(item: any, tipoAlmacenaje: string, tipoDetalle: 'CSG' | 'VTA'): Promise<void> {
+    const codigo = item.prod_id?.codigo;
+    const cantidadVal = tipoDetalle === 'VTA' ? item.venta_sujeta : item.consignacion;
+    if (!codigo || !cantidadVal) return;
+
+    this.tipoDetalle.set(tipoDetalle);
     this.productoSeleccionado.set(item);
     this.itemsConsignacion.set([]);
     this.itemsConsignacionCeros.set([]);
@@ -1098,7 +1124,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
       // Primera consulta con top=1000 para minimizar páginas necesarias
       const primeraRespuesta: any = await firstValueFrom(
-        this.apiService.getStockERP(codigo, 'CONSIGNACION', top)
+        this.apiService.getStockERP(codigo, tipoAlmacenaje, top)
       );
 
       if (!primeraRespuesta) throw new Error('Sin respuesta del servidor');
@@ -1109,11 +1135,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
       if (primeraRespuesta.next) {
         const totalRegistros = primeraRespuesta.count || 0;
         const totalPaginas = Math.ceil(totalRegistros / top);
-        console.log(`Stock_ERP: ${totalRegistros} registros en ${totalPaginas} páginas. Cargando páginas restantes en paralelo...`);
+        console.log(`Stock_ERP (${tipoAlmacenaje}): ${totalRegistros} registros en ${totalPaginas} páginas. Cargando páginas restantes en paralelo...`);
 
         const promesas: Promise<any>[] = [];
         for (let pagina = 2; pagina <= totalPaginas; pagina++) {
-          const urlPagina = `Stock_ERP/?page=${pagina}&top=${top}&codigo_producto=${encodeURIComponent(codigo)}&tipo_almacenaje=CONSIGNACION`;
+          const urlPagina = `Stock_ERP/?page=${pagina}&top=${top}&codigo_producto=${encodeURIComponent(codigo)}&tipo_almacenaje=${encodeURIComponent(tipoAlmacenaje)}`;
           promesas.push(firstValueFrom(this.apiService.getStockERPPagina(urlPagina)));
         }
 
@@ -1123,7 +1149,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
         });
       }
 
-      console.log(`Stock_ERP: ${todosLosResultados.length} registros totales cargados.`);
+      console.log(`Stock_ERP (${tipoAlmacenaje}): ${todosLosResultados.length} registros totales cargados.`);
 
       // Guardar el kardex original con cantidades como enteros
       this.itemsConsignacionRaw.set(
@@ -1163,7 +1189,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       this.loadingDetalle.set(false);
 
     } catch (err) {
-      console.error('Error al cargar detalle CSG:', err);
+      console.error(`Error al cargar detalle ${tipoDetalle}:`, err);
       this.errorDetalle.set('No se pudo cargar el detalle. Intente nuevamente.');
       this.loadingDetalle.set(false);
     }
@@ -1429,6 +1455,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   regresarATabla(): void {
     this.tiempoRestanteActualizacion.set(60);
     this.vistaDetalle.set(false);
+    this.tipoDetalle.set('CSG');
     this.productoSeleccionado.set(null);
     this.itemsConsignacion.set([]);
     this.itemsConsignacionCeros.set([]);
@@ -1976,7 +2003,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
   obtenerSumaIconoDetalle(): number {
     if (!this.productoSeleccionado()) return 0;
     if (!this.modoCodigosFijos()) {
-      return this.productoSeleccionado()?.consignacion || 0;
+      return this.tipoDetalle() === 'VTA'
+        ? (this.productoSeleccionado()?.venta_sujeta || 0)
+        : (this.productoSeleccionado()?.consignacion || 0);
     }
 
     if (this.mostrarKardexOriginal()) {

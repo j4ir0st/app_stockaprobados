@@ -323,8 +323,16 @@
               } @else {
               {{ item.consignacion }}
               }
+            <!-- Celda VTA: clicable si el valor es mayor que 0 -->
+            <td class="celda-centrada">
+              @if (item.venta_sujeta > 0) {
+              <button class="btn-vta" (click)="verDetalleVTA(item)" title="Ver detalle de venta sujeta a confirmación">
+                {{ item.venta_sujeta }}
+              </button>
+              } @else {
+              {{ item.venta_sujeta }}
+              }
             </td>
-            <td class="celda-centrada">{{ item.venta_sujeta }}</td>
             <td class="celda-centrada">
               @if (cargandoTransito()) {
               <i class="fas fa-spinner fa-spin" style="color: var(--primary-blue, #2563eb); font-size: 0.85rem;"
@@ -389,8 +397,7 @@
       <!-- Título de la sección -->
       <div class="detalle-titulo-seccion">
         <i class="fas fa-boxes"></i>
-        <h3>{{ modoCodigosFijos() ? 'Detalle por Guía' : (tipoCategoriaTitle() ? tipoCategoriaTitle() + ' - Detalle de
-          Consignación' : 'Detalle de Consignación') }}</h3>
+        <h3>{{ modoCodigosFijos() ? 'Detalle por Guía' : (tipoCategoriaTitle() ? tipoCategoriaTitle() + ' - ' + tituloDetalleSeccion() : tituloDetalleSeccion()) }}</h3>
         @if (!loadingDetalle()) {
         <!-- Filtros de búsqueda en detalle (serie y depósito) -->
         <div class="filtros-detalle-grupo">
@@ -486,7 +493,7 @@
       @if (loadingDetalle()) {
       <div class="detalle-loading">
         <i class="fas fa-spinner fa-spin"></i>
-        <span>{{ modoCodigosFijos() ? 'Cargando detalles por guias...' : 'Cargando detalle de consignación...' }}</span>
+        <span>{{ modoCodigosFijos() ? 'Cargando detalles por guias...' : (tipoDetalle() === 'VTA' ? 'Cargando detalle de venta sujeta a confirmación...' : 'Cargando detalle de consignación...') }}</span>
       </div>
       }
 
@@ -616,8 +623,7 @@
               <td
                 [attr.colspan]="modoCodigosFijos() ? (mostrarKardexOriginal() ? (mostrarCodigoProductoDetalle() ? 14 : 13) : (mostrarCodigoProductoDetalle() ? 9 : 8)) : 8"
                 class="no-results">
-                {{ modoCodigosFijos() ? 'No se encontraron registros de guías para este producto.' : 'No se encontraron
-                registros de consignación para este producto.' }}
+                {{ modoCodigosFijos() ? 'No se encontraron registros de guías para este producto.' : (tipoDetalle() === 'VTA' ? 'No se encontraron registros de venta sujeta a confirmación para este producto.' : 'No se encontraron registros de consignación para este producto.') }}
               </td>
             </tr>
             }
