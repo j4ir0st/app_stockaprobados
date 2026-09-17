@@ -342,10 +342,14 @@
               }
             </td>
             <td class="celda-centrada">
-              <span class="badge" [class.badge-danger]="(item.stock_total || item.stock) <= 0"
+              <button class="badge badge-total-clickable"
+                [class.badge-danger]="(item.stock_total || item.stock) <= 0"
                 [class.badge-warning]="(item.stock_total || item.stock) >= 1 && (item.stock_total || item.stock) <= 4"
-                [class.badge-success]="(item.stock_total || item.stock) >= 5">
-                {{ (item.stock_total || item.stock) < 0 ? 0 : (item.stock_total || item.stock) }} </span>
+                [class.badge-success]="(item.stock_total || item.stock) >= 5"
+                (click)="verDetalleTotal(item)"
+                title="Clic para ver detalle de todos los movimientos en Stock ERP">
+                {{ (item.stock_total || item.stock) < 0 ? 0 : (item.stock_total || item.stock) }}
+              </button>
             </td>
             }
           </tr>
@@ -399,8 +403,22 @@
         <i class="fas fa-boxes"></i>
         <h3>{{ modoCodigosFijos() ? 'Detalle por Guía' : (tipoCategoriaTitle() ? tipoCategoriaTitle() + ' - ' + tituloDetalleSeccion() : tituloDetalleSeccion()) }}</h3>
         @if (!loadingDetalle()) {
-        <!-- Filtros de búsqueda en detalle (serie y depósito) -->
+        <!-- Filtros de búsqueda en detalle (almacenaje, serie y depósito) -->
         <div class="filtros-detalle-grupo">
+          <!-- Filtro por tipo de almacenaje (solo para Detalle Total de Stock ERP) -->
+          @if (!modoCodigosFijos() && tipoDetalle() === 'TOTAL') {
+          <div class="filtro-detalle-wrapper">
+            <i class="fas fa-boxes filtro-detalle-icono"></i>
+            <input type="text" class="filtro-detalle-input" [ngModel]="filtroAlmacenaje()"
+              (ngModelChange)="filtroAlmacenaje.set($event)" placeholder="Filtrar almacenaje..."
+              title="Filtrar registros por tipo de almacenaje">
+            @if (filtroAlmacenaje()) {
+            <button class="filtro-detalle-clear" (click)="filtroAlmacenaje.set('')" title="Limpiar filtro">
+              <i class="fas fa-times"></i>
+            </button>
+            }
+          </div>
+          }
           <!-- Filtro por representante -->
           @if (modoCodigosFijos()) {
           <div class="filtro-detalle-wrapper">
@@ -493,7 +511,7 @@
       @if (loadingDetalle()) {
       <div class="detalle-loading">
         <i class="fas fa-spinner fa-spin"></i>
-        <span>{{ modoCodigosFijos() ? 'Cargando detalles por guias...' : (tipoDetalle() === 'VTA' ? 'Cargando detalle de venta sujeta a confirmación...' : 'Cargando detalle de consignación...') }}</span>
+        <span>{{ modoCodigosFijos() ? 'Cargando detalles por guias...' : (tipoDetalle() === 'TOTAL' ? 'Cargando todos los registros de Stock ERP...' : (tipoDetalle() === 'VTA' ? 'Cargando detalle de venta sujeta a confirmación...' : 'Cargando detalle de consignación...')) }}</span>
       </div>
       }
 
@@ -623,7 +641,7 @@
               <td
                 [attr.colspan]="modoCodigosFijos() ? (mostrarKardexOriginal() ? (mostrarCodigoProductoDetalle() ? 14 : 13) : (mostrarCodigoProductoDetalle() ? 9 : 8)) : 8"
                 class="no-results">
-                {{ modoCodigosFijos() ? 'No se encontraron registros de guías para este producto.' : (tipoDetalle() === 'VTA' ? 'No se encontraron registros de venta sujeta a confirmación para este producto.' : 'No se encontraron registros de consignación para este producto.') }}
+                {{ modoCodigosFijos() ? 'No se encontraron registros de guías para este producto.' : (tipoDetalle() === 'TOTAL' ? 'No se encontraron registros en Stock ERP para este producto.' : (tipoDetalle() === 'VTA' ? 'No se encontraron registros de venta sujeta a confirmación para este producto.' : 'No se encontraron registros de consignación para este producto.')) }}
               </td>
             </tr>
             }

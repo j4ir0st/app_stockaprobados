@@ -419,6 +419,32 @@
     color: #15803d;
 }
 
+/* Badge interactivo para la columna TOTAL */
+.badge-total-clickable {
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    user-select: none;
+    display: inline-block;
+    min-width: 32px;
+}
+
+.badge-total-clickable:hover {
+    transform: translateY(-1px) scale(1.06);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+    filter: brightness(0.96);
+}
+
+.badge-total-clickable:active {
+    transform: translateY(0) scale(0.97);
+}
+
+.inventory-container.dark-mode .badge-total-clickable:hover {
+    filter: brightness(1.2);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+}
+
 .no-results {
     text-align: center;
     padding: 3rem !important;

@@ -60,10 +60,13 @@ export class InventoryComponent implements OnInit, OnDestroy {
   // Indica si el modo actual es de códigos fijos (ej: Equipos VAC) — habilita clic en toda la fila
   modoCodigosFijos = signal(false);
 
-  // Estado de la vista de detalle CSG / VTA
+  // Estado de la vista de detalle CSG / VTA / TOTAL
   vistaDetalle = signal(false);
-  tipoDetalle = signal<'CSG' | 'VTA'>('CSG');
+  tipoDetalle = signal<'CSG' | 'VTA' | 'TOTAL'>('CSG');
   tituloDetalleSeccion = computed(() => {
+    if (this.tipoDetalle() === 'TOTAL') {
+      return 'Detalle Total de Stock ERP';
+    }
     return this.tipoDetalle() === 'VTA'
       ? 'Detalle de Venta Sujeta a Confirmación'
       : 'Detalle de Consignación';
@@ -177,6 +180,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   mostrarKardexOriginal = signal(false);  // Muestra el kardex sin agregar
   mostrarCeros = signal(false);           // Muestra también los registros que quedaron en cero
   ordenFechaAscendente = signal(false);   // Orden de fecha: false = descendente (por defecto, igual que API)
+  filtroAlmacenaje = signal('');          // Filtro de texto por tipo de almacenaje
   filtroSerie = signal('');               // Filtro de texto por número de serie
   filtroDeposito = signal('');            // Filtro de texto por nombre de depósito
   filtroRepresentante = signal('');       // Filtro de texto por representante
@@ -194,6 +198,12 @@ export class InventoryComponent implements OnInit, OnDestroy {
     if (this.mostrarKardexOriginal()) items = this.itemsConsignacionRaw();
     else if (this.mostrarCeros()) items = [...this.itemsConsignacion(), ...this.itemsConsignacionCeros()];
     else items = this.itemsConsignacion();
+
+    // Filtrar por tipo de almacenaje en memoria (búsqueda parcial sin distinción de mayúsculas)
+    const filtroPorAlmacenaje = this.filtroAlmacenaje().trim().toLowerCase();
+    if (filtroPorAlmacenaje) {
+      items = items.filter(reg => (reg.tipo_almacenaje || '').toLowerCase().includes(filtroPorAlmacenaje));
+    }
 
     // Filtrar por número de serie en memoria (búsqueda parcial sin distinción de mayúsculas)
     const filtroPorSerie = this.filtroSerie().trim().toLowerCase();
@@ -1094,16 +1104,23 @@ export class InventoryComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Abre la tarjeta de detalle Total consultando todos los registros de Stock_ERP sin filtro de tipo de almacenaje.
+   * @param item Registro del inventario seleccionado.
+   */
+  async verDetalleTotal(item: any): Promise<void> {
+    await this.cargarDetalleStockERP(item, undefined, 'TOTAL');
+  }
+
+  /**
    * Método privado reusable para consultar el detalle en Stock_ERP según el tipo de almacenaje y la vista seleccionada.
    * Evita la duplicación de código según las reglas de buenas prácticas del proyecto.
    * @param item Registro seleccionado.
    * @param tipoAlmacenaje Filtro de almacenaje para la API (ej: 'CONSIGNACION' o 'VTA. SUJET. A CONF(MER)/BIENES DE USO').
-   * @param tipoDetalle Modo de detalle ('CSG' o 'VTA').
+   * @param tipoDetalle Modo de detalle ('CSG', 'VTA' o 'TOTAL').
    */
-  private async cargarDetalleStockERP(item: any, tipoAlmacenaje: string, tipoDetalle: 'CSG' | 'VTA'): Promise<void> {
+  private async cargarDetalleStockERP(item: any, tipoAlmacenaje: string | undefined, tipoDetalle: 'CSG' | 'VTA' | 'TOTAL'): Promise<void> {
     const codigo = item.prod_id?.codigo;
-    const cantidadVal = tipoDetalle === 'VTA' ? item.venta_sujeta : item.consignacion;
-    if (!codigo || !cantidadVal) return;
+    if (!codigo) return;
 
     this.tipoDetalle.set(tipoDetalle);
     this.productoSeleccionado.set(item);
@@ -1113,6 +1130,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.mostrarKardexOriginal.set(false);
     this.mostrarCeros.set(false);
     this.ordenFechaAscendente.set(false);
+    this.filtroAlmacenaje.set('');
     this.filtroSerie.set('');
     this.filtroDeposito.set('');
     this.errorDetalle.set(null);
@@ -1124,7 +1142,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
       // Primera consulta con top=1000 para minimizar páginas necesarias
       const primeraRespuesta: any = await firstValueFrom(
-        this.apiService.getStockERP(codigo, tipoAlmacenaje, top)
+        tipoDetalle === 'TOTAL'
+          ? this.apiService.getStockERPTodos(codigo, top)
+          : this.apiService.getStockERP(codigo, tipoAlmacenaje || '', top)
       );
 
       if (!primeraRespuesta) throw new Error('Sin respuesta del servidor');
@@ -1135,11 +1155,13 @@ export class InventoryComponent implements OnInit, OnDestroy {
       if (primeraRespuesta.next) {
         const totalRegistros = primeraRespuesta.count || 0;
         const totalPaginas = Math.ceil(totalRegistros / top);
-        console.log(`Stock_ERP (${tipoAlmacenaje}): ${totalRegistros} registros en ${totalPaginas} páginas. Cargando páginas restantes en paralelo...`);
+        console.log(`Stock_ERP (${tipoDetalle}): ${totalRegistros} registros en ${totalPaginas} páginas. Cargando páginas restantes en paralelo...`);
 
         const promesas: Promise<any>[] = [];
         for (let pagina = 2; pagina <= totalPaginas; pagina++) {
-          const urlPagina = `Stock_ERP/?page=${pagina}&top=${top}&codigo_producto=${encodeURIComponent(codigo)}&tipo_almacenaje=${encodeURIComponent(tipoAlmacenaje)}`;
+          const urlPagina = tipoDetalle === 'TOTAL'
+            ? `Stock_ERP/?page=${pagina}&top=${top}&codigo_producto=${encodeURIComponent(codigo)}`
+            : `Stock_ERP/?page=${pagina}&top=${top}&codigo_producto=${encodeURIComponent(codigo)}&tipo_almacenaje=${encodeURIComponent(tipoAlmacenaje || '')}`;
           promesas.push(firstValueFrom(this.apiService.getStockERPPagina(urlPagina)));
         }
 
@@ -1149,21 +1171,24 @@ export class InventoryComponent implements OnInit, OnDestroy {
         });
       }
 
-      console.log(`Stock_ERP (${tipoAlmacenaje}): ${todosLosResultados.length} registros totales cargados.`);
+      console.log(`Stock_ERP (${tipoDetalle}): ${todosLosResultados.length} registros totales cargados.`);
 
       // Guardar el kardex original con cantidades como enteros
       this.itemsConsignacionRaw.set(
         todosLosResultados.map((reg: any) => ({ ...reg, cantidad: Math.round(reg.cantidad || 0) }))
       );
 
-      // Agregar registros por numero_serie + deposito: misma serie puede existir en varios depósitos
+      // Agregar registros por numero_serie + deposito + tipo_almacenaje
       const agregado = new Map<string, any>();
 
       todosLosResultados.forEach((reg: any) => {
-        // La clave combina serie y depósito para agrupar correctamente por ubicación
-        const clave = reg.numero_serie
-          ? `${reg.numero_serie}|${reg.nombre_deposito || ''}`
-          : `__sin_serie_${Math.random()}`;
+        const serie = (reg.numero_serie || '').trim();
+        const deposito = (reg.nombre_deposito || '').trim();
+        const almacenaje = (reg.tipo_almacenaje || '').trim();
+        // La clave combina serie, depósito y tipo de almacenaje para agrupar correctamente
+        const clave = serie
+          ? `${serie}|${deposito}|${almacenaje}`
+          : `__sin_serie_${deposito}_${almacenaje}_${Math.random()}`;
         const cantidadActual = Math.round(reg.cantidad || 0);
 
         if (agregado.has(clave)) {
@@ -1463,6 +1488,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.mostrarKardexOriginal.set(false);
     this.mostrarCeros.set(false);
     this.ordenFechaAscendente.set(false);
+    this.filtroAlmacenaje.set('');
     this.filtroSerie.set('');
     this.filtroDeposito.set('');
     this.filtroRepresentante.set('');
@@ -2003,6 +2029,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
   obtenerSumaIconoDetalle(): number {
     if (!this.productoSeleccionado()) return 0;
     if (!this.modoCodigosFijos()) {
+      if (this.tipoDetalle() === 'TOTAL') {
+        return (this.productoSeleccionado()?.stock_total || this.productoSeleccionado()?.stock || 0);
+      }
       return this.tipoDetalle() === 'VTA'
         ? (this.productoSeleccionado()?.venta_sujeta || 0)
         : (this.productoSeleccionado()?.consignacion || 0);
