@@ -167,8 +167,8 @@ export class SidebarComponent {
 
   // Ítems del menú filtrados según las restricciones del usuario actual
   get menuItems() {
-    const username = this.authService.currentUser()?.username;
-    return this.configService.getMenuItemsParaUsuario(username);
+    const user = this.authService.currentUser();
+    return this.configService.getMenuItemsParaUsuario(user);
   }
 
   /**

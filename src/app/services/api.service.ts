@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, catchError, throwError } from 'rxjs';
 import { ConfigService } from './config.service';
 
 /**
@@ -72,16 +72,17 @@ export class ApiService {
     if (top) {
       params = params.set('top', top.toString());
     }
-    return this.get('StockAprobado/', params);
+    params = params.set('format', 'json');
+
+    return this.http.get<any>(`${this.baseUrl}StockAprobado/`, { params });
   }
 
 
   /**
-   * Obtiene el detalle de stock ERP filtrado por código de producto y tipo de almacenaje.
-   * Incluye el parámetro top para cargar la mayor cantidad posible en una sola consulta.
+   * Obtiene el detalle de consignación (CSG) o venta sujeta (VTA) desde la API Stock_ERP.
    * @param codigoProducto Código del producto a consultar.
-   * @param tipoAlmacenaje Tipo de almacenaje (ej: 'CONSIGNACION').
-   * @param top Límite de resultados por página (por defecto 1000).
+   * @param tipoAlmacenaje Filtro del tipo de almacenaje (ej: CONSIGNACION).
+   * @param top Límite de resultados opcional (ej: 1000 para cargar todo en una sola consulta).
    */
   getStockERP(codigoProducto: string, tipoAlmacenaje: string, top: number = 1000): Observable<any> {
     const params = new HttpParams()
@@ -93,10 +94,9 @@ export class ApiService {
   }
 
   /**
-   * Obtiene todos los registros de Stock_ERP para un código de producto sin filtro de tipo de almacenaje.
-   * Usado para vistas que requieren todos los movimientos (ej: Equipos VAC).
+   * Obtiene todos los movimientos de Stock_ERP para un código de producto sin filtrar por tipo de almacenaje.
    * @param codigoProducto Código del producto a consultar.
-   * @param top Límite de resultados por página (por defecto 1000).
+   * @param top Límite de resultados opcional (ej: 1000 para cargar todo en una sola consulta).
    * @param soloGuias Si es verdadero, agrega el filtro solo_guias=true.
    */
   getStockERPTodos(codigoProducto: string, top: number = 1000, soloGuias: boolean = false): Observable<any> {
@@ -169,6 +169,117 @@ export class ApiService {
       }
     }
     return this.http.get<any>(`${this.baseUrl}SI_Transito/`, { params });
+  }
+
+  /**
+   * Obtiene el detalle completo enriquecido de un Equipo VAC (incluye seguimiento y guia_info).
+   * @param serie Número de serie del equipo.
+   */
+  getEquipoVACDetalleCompleto(serie: string): Observable<any> {
+    const s = encodeURIComponent(serie.trim());
+    return this.http.get<any>(`${this.baseUrl}EquiposVAC/${s}/detalle-completo/?format=json`);
+  }
+
+  /**
+   * Obtiene la lista de seguimientos de equipos VAC.
+   * @param serie Opcional, filtrar por número de serie.
+   */
+  getSeguimientosVAC(serie?: string): Observable<any> {
+    let params = new HttpParams().set('format', 'json').set('top', '1000');
+    if (serie) {
+      params = params.set('serie', serie);
+    }
+    return this.http.get<any>(`${this.baseUrl}EV_Seguimiento/`, { params });
+  }
+
+  /**
+   * Actualiza o crea el estado de retorno de un equipo VAC en EV_Seguimiento.
+   * Envía serie y volvio_almacen. El backend maneja la fecha y el usuario automáticamente.
+   */
+  actualizarEstadoRetornoVAC(serie: string, volvioAlmacen: boolean): Observable<any> {
+    const cleanSerie = serie.trim();
+    const baseApi = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`;
+    return this.http.post<any>(`${baseApi}EV_Seguimiento/`, {
+      serie: cleanSerie,
+      volvio_almacen: volvioAlmacen
+    });
+  }
+
+  /**
+   * Crea o actualiza el registro de seguimiento para un equipo VAC.
+   */
+  crearSeguimientoVAC(data: any): Observable<any> {
+    const serie = (typeof data === 'string' ? data : (data.serie || '')).trim();
+    const volvio = typeof data === 'object' && data.volvio_almacen !== undefined ? !!data.volvio_almacen : true;
+    return this.actualizarEstadoRetornoVAC(serie, volvio);
+  }
+
+  /**
+   * Actualiza el estado de retorno de un seguimiento existente.
+   */
+  actualizarSeguimientoVAC(idOrSerie: number | string, data: any): Observable<any> {
+    const baseApi = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`;
+    const volvio = data.volvio_almacen !== undefined ? !!data.volvio_almacen : true;
+    if (typeof idOrSerie === 'string') {
+      return this.actualizarEstadoRetornoVAC(idOrSerie, volvio);
+    }
+    return this.http.patch<any>(`${baseApi}EV_Seguimiento/${idOrSerie}/`, {
+      volvio_almacen: volvio
+    });
+  }
+
+  /**
+   * Obtiene los comentarios de seguimiento de Equipos VAC.
+   * @param seguimientoId ID del seguimiento.
+   * @param serie Número de serie.
+   */
+  getComentariosVAC(seguimientoId?: number, serie?: string): Observable<any> {
+    let params = new HttpParams().set('format', 'json').set('top', '1000');
+    if (seguimientoId) {
+      params = params.set('seguimiento', seguimientoId.toString());
+    }
+    if (serie) {
+      params = params.set('seguimiento__serie', serie);
+    }
+    return this.http.get<any>(`${this.baseUrl}EV_Comentario/`, { params });
+  }
+
+  /**
+   * Registra un nuevo comentario / intento de recuperación en EV_Comentario.
+   * Solo requiere serie y comentario. El backend auto-crea el seguimiento y asigna el usuario autenticado.
+   */
+  crearComentarioVAC(serieOrData: string | { serie?: string; seguimiento?: number | string; comentario: string; usuario?: number }, comentarioTexto?: string): Observable<any> {
+    const baseApi = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`;
+    let serie = '';
+    let comentario = '';
+
+    if (typeof serieOrData === 'string') {
+      serie = serieOrData.trim();
+      comentario = (comentarioTexto || '').trim();
+    } else {
+      serie = (serieOrData.serie || '').trim();
+      comentario = (serieOrData.comentario || '').trim();
+      if (!serie && serieOrData.seguimiento) {
+        return this.http.post<any>(`${baseApi}EV_Comentario/`, {
+          seguimiento: serieOrData.seguimiento,
+          comentario: comentario
+        });
+      }
+    }
+
+    return this.http.post<any>(`${baseApi}EV_Comentario/`, {
+      serie: serie,
+      comentario: comentario
+    });
+  }
+
+  /**
+   * Consulta directa de Guías de Remisión por número de guía.
+   * @param nroGuia Número de guía a consultar (ej: T003-47542).
+   */
+  getGuiaRemisionPorNumero(nroGuia: string): Observable<any> {
+    const params = new HttpParams().set('format', 'json').set('nro_guia', nroGuia);
+    return this.http.get<any>(`${this.baseUrl}GuiasRemision/`, { params });
   }
 
   /**

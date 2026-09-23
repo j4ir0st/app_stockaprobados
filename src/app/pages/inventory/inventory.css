@@ -1543,4 +1543,950 @@
 .celda-centrada .th-ordenable {
     justify-content: center;
     width: 100%;
-}
+}
+
+/* =======================================================
+   Resaltado diferenciado para pacientes con múltiples equipos VAC
+   ======================================================= */
+.badge-paciente-duplicado {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    cursor: help;
+}
+
+.badge-paciente-duplicado:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.icono-paciente {
+    font-size: 0.75rem;
+    opacity: 0.85;
+}
+
+.badge-paciente-contador {
+    font-size: 0.75rem;
+    font-weight: 700;
+    opacity: 0.9;
+}
+
+/* Paleta 0: Azul / Índigo Pastel */
+.paciente-color-0 {
+    background: rgba(99, 102, 241, 0.14);
+    color: #3730a3;
+    border: 1px solid rgba(99, 102, 241, 0.35);
+}
+.inventory-container.dark-mode .paciente-color-0 {
+    background: rgba(99, 102, 241, 0.25);
+    color: #c7d2fe;
+    border-color: rgba(129, 140, 248, 0.4);
+}
+
+/* Paleta 1: Púrpura / Violeta Pastel */
+.paciente-color-1 {
+    background: rgba(168, 85, 247, 0.14);
+    color: #6b21a8;
+    border: 1px solid rgba(168, 85, 247, 0.35);
+}
+.inventory-container.dark-mode .paciente-color-1 {
+    background: rgba(168, 85, 247, 0.25);
+    color: #e9d5ff;
+    border-color: rgba(192, 132, 252, 0.4);
+}
+
+/* Paleta 2: Rosa / Fucsia Pastel */
+.paciente-color-2 {
+    background: rgba(236, 72, 153, 0.14);
+    color: #9d174d;
+    border: 1px solid rgba(236, 72, 153, 0.35);
+}
+.inventory-container.dark-mode .paciente-color-2 {
+    background: rgba(236, 72, 153, 0.25);
+    color: #fbcfe8;
+    border-color: rgba(244, 114, 182, 0.4);
+}
+
+/* Paleta 3: Naranja / Ámbar Pastel */
+.paciente-color-3 {
+    background: rgba(249, 115, 22, 0.14);
+    color: #9a3412;
+    border: 1px solid rgba(249, 115, 22, 0.35);
+}
+.inventory-container.dark-mode .paciente-color-3 {
+    background: rgba(249, 115, 22, 0.25);
+    color: #fed7aa;
+    border-color: rgba(251, 146, 60, 0.4);
+}
+
+/* Paleta 4: Teal / Verde Azulado Pastel */
+.paciente-color-4 {
+    background: rgba(20, 184, 166, 0.14);
+    color: #115e59;
+    border: 1px solid rgba(20, 184, 166, 0.35);
+}
+.inventory-container.dark-mode .paciente-color-4 {
+    background: rgba(20, 184, 166, 0.25);
+    color: #99f6e4;
+    border-color: rgba(45, 212, 191, 0.4);
+}
+
+/* Paleta 5: Esmeralda / Menta Pastel */
+.paciente-color-5 {
+    background: rgba(16, 185, 129, 0.14);
+    color: #065f46;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.inventory-container.dark-mode .paciente-color-5 {
+    background: rgba(16, 185, 129, 0.25);
+    color: #a7f3d0;
+    border-color: rgba(52, 211, 153, 0.4);
+}
+
+/* Paleta 6: Azul Cielo / Cian Pastel */
+.paciente-color-6 {
+    background: rgba(14, 165, 233, 0.14);
+    color: #075985;
+    border: 1px solid rgba(14, 165, 233, 0.35);
+}
+.inventory-container.dark-mode .paciente-color-6 {
+    background: rgba(14, 165, 233, 0.25);
+    color: #bae6fd;
+    border-color: rgba(56, 189, 248, 0.4);
+}
+
+/* Paleta 7: Amarillo Cálido Pastel */
+.paciente-color-7 {
+    background: rgba(234, 179, 8, 0.16);
+    color: #854d0e;
+    border: 1px solid rgba(234, 179, 8, 0.4);
+}
+.inventory-container.dark-mode .paciente-color-7 {
+    background: rgba(234, 179, 8, 0.25);
+    color: #fef08a;
+    border-color: rgba(250, 204, 21, 0.4);
+}
+
+/* --- Filas clickeables en la tabla de representantes VAC --- */
+.fila-clickable-rep {
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.fila-clickable-rep:hover {
+    background-color: #f0fdf4 !important;
+}
+
+.inventory-container.dark-mode .fila-clickable-rep:hover {
+    background-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+/* ========================================================================= */
+/* --- BOTÓN DE GUÍA DE REMISIÓN EN TABLA DETALLE --- */
+/* ========================================================================= */
+.btn-guia-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    background: rgba(59, 130, 246, 0.1);
+    color: #1d4ed8;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.btn-guia-badge i {
+    font-size: 0.8rem;
+    color: #3b82f6;
+}
+
+.btn-guia-badge:hover {
+    background: #3b82f6;
+    color: #ffffff;
+    border-color: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(59, 130, 246, 0.3);
+}
+
+.btn-guia-badge:hover i {
+    color: #ffffff;
+}
+
+.inventory-container.dark-mode .btn-guia-badge {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.inventory-container.dark-mode .btn-guia-badge:hover {
+    background: #3b82f6;
+    color: #ffffff;
+}
+
+/* ========================================================================= */
+/* --- SEGUIMIENTO Y RETORNO DE EQUIPOS VAC (DISTRIBUCIÓN) --- */
+/* ========================================================================= */
+.celda-seguimiento-vac {
+    white-space: nowrap;
+}
+
+.seguimiento-acciones-grupo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+}
+
+.btn-retorno-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid rgba(249, 115, 22, 0.35);
+    background: rgba(249, 115, 22, 0.12);
+    color: #c2410c;
+    transition: all 0.2s ease;
+}
+
+.btn-retorno-toggle:hover {
+    background: rgba(249, 115, 22, 0.25);
+    transform: scale(1.02);
+}
+
+.btn-retorno-toggle.retornado {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+}
+
+.btn-retorno-toggle.retornado:hover {
+    background: rgba(16, 185, 129, 0.25);
+}
+
+.inventory-container.dark-mode .btn-retorno-toggle {
+    background: rgba(249, 115, 22, 0.2);
+    color: #fed7aa;
+    border-color: rgba(249, 115, 22, 0.4);
+}
+
+.inventory-container.dark-mode .btn-retorno-toggle.retornado {
+    background: rgba(16, 185, 129, 0.2);
+    color: #a7f3d0;
+    border-color: rgba(16, 185, 129, 0.4);
+}
+
+.btn-comentarios-vac {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+.btn-comentarios-vac:hover {
+    background: #f1f5f9;
+    color: #3b82f6;
+    border-color: #93c5fd;
+    transform: translateY(-1px);
+}
+
+.btn-comentarios-vac.con-comentarios {
+    border-color: rgba(99, 102, 241, 0.4);
+    background: rgba(99, 102, 241, 0.1);
+    color: #4f46e5;
+}
+
+.btn-comentarios-vac.con-comentarios:hover {
+    background: #4f46e5;
+    color: #ffffff;
+}
+
+.badge-comentarios-count {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #ffffff;
+}
+
+.inventory-container.dark-mode .btn-comentarios-vac {
+    background: #1e293b;
+    border-color: #475569;
+    color: #94a3b8;
+}
+
+.inventory-container.dark-mode .btn-comentarios-vac:hover {
+    background: #334155;
+    color: #60a5fa;
+}
+
+.inventory-container.dark-mode .btn-comentarios-vac.con-comentarios {
+    background: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
+    border-color: rgba(99, 102, 241, 0.4);
+}
+
+/* ========================================================================= */
+/* --- MODALES Y OVERLAYS --- */
+/* ========================================================================= */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: fadeInModal 0.2s ease-out;
+}
+
+@keyframes fadeInModal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-dialog {
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 680px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideUpModal 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpModal {
+    from { transform: translateY(20px) scale(0.97); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.inventory-container.dark-mode .modal-dialog {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #f8fafc;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.inventory-container.dark-mode .modal-header {
+    background: #0f172a;
+    border-bottom-color: #334155;
+}
+
+.modal-titulo-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.modal-icono-guia,
+.modal-icono-seguimiento {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.modal-icono-guia {
+    background: rgba(59, 130, 246, 0.15);
+    color: #2563eb;
+}
+
+.modal-icono-seguimiento {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+}
+
+.modal-titulo {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.inventory-container.dark-mode .modal-titulo {
+    color: #f1f5f9;
+}
+
+.badge-empresa-header {
+    display: inline-block;
+    margin-top: 3px;
+    padding: 2px 7px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    border-radius: 4px;
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+}
+
+.inventory-container.dark-mode .badge-empresa-header {
+    background: rgba(3, 105, 161, 0.25);
+    color: #7dd3fc;
+    border-color: rgba(3, 105, 161, 0.45);
+}
+
+.modal-subtitulo {
+    margin: 2px 0 0 0;
+    font-size: 0.82rem;
+    color: #64748b;
+}
+
+.inventory-container.dark-mode .modal-subtitulo {
+    color: #94a3b8;
+}
+
+.btn-modal-cerrar {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+}
+
+.btn-modal-cerrar:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.inventory-container.dark-mode .btn-modal-cerrar:hover {
+    background: #334155;
+    color: #ffffff;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    max-height: calc(90vh - 80px);
+}
+
+.modal-cargando {
+    text-align: center;
+    padding: 40px 20px;
+    color: #64748b;
+}
+
+.modal-cargando i {
+    font-size: 2rem;
+    color: #3b82f6;
+    margin-bottom: 12px;
+}
+
+.modal-alerta-error {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    color: #991b1b;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+/* ========================================================================= */
+/* --- CONTENIDO ESPECÍFICO DE GUÍA DE REMISIÓN --- */
+/* ========================================================================= */
+.guia-resumen-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px dashed #e2e8f0;
+}
+
+.inventory-container.dark-mode .guia-resumen-badges {
+    border-bottom-color: #334155;
+}
+
+.guia-badge-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+}
+
+.guia-badge-label {
+    font-weight: 700;
+    color: #64748b;
+}
+
+.badge-empresa {
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+}
+
+.badge-estado-act {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.badge-tipo-pedido {
+    background: #f3e8ff;
+    color: #7e22ce;
+    border: 1px solid #e9d5ff;
+}
+
+.guia-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+@media (max-width: 600px) {
+    .guia-info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.guia-campo-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.guia-campo-card.full-width {
+    grid-column: 1 / -1;
+}
+
+.inventory-container.dark-mode .guia-campo-card {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+.guia-campo-icono {
+    color: #3b82f6;
+    font-size: 1.1rem;
+    margin-top: 2px;
+}
+
+.guia-campo-contenido {
+    flex: 1;
+}
+
+.guia-campo-titulo {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 2px;
+}
+
+.guia-campo-valor {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #0f172a;
+    word-break: break-word;
+}
+
+.inventory-container.dark-mode .guia-campo-valor {
+    color: #e2e8f0;
+}
+
+.obs-texto {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.84rem;
+    background: rgba(0, 0, 0, 0.03);
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+
+.inventory-container.dark-mode .obs-texto {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.guia-contexto-equipo {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.inventory-container.dark-mode .guia-contexto-equipo {
+    background: #1e293b;
+    border-color: #475569;
+}
+
+.guia-contexto-titulo {
+    margin: 0 0 8px 0;
+    font-size: 0.85rem;
+    color: #475569;
+}
+
+.inventory-container.dark-mode .guia-contexto-titulo {
+    color: #cbd5e1;
+}
+
+.guia-contexto-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+    font-size: 0.82rem;
+}
+
+/* ========================================================================= */
+/* --- CONTENIDO ESPECÍFICO DE SEGUIMIENTO Y COMENTARIOS --- */
+/* ========================================================================= */
+.seguimiento-resumen-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.inventory-container.dark-mode .seguimiento-resumen-card {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+.seguimiento-resumen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    font-size: 0.85rem;
+}
+
+.seguimiento-resumen-item .label {
+    font-weight: 700;
+    color: #64748b;
+    margin-right: 4px;
+}
+
+.seguimiento-resumen-item .valor {
+    color: #0f172a;
+    font-weight: 500;
+}
+
+.inventory-container.dark-mode .seguimiento-resumen-item .valor {
+    color: #f1f5f9;
+}
+
+.highlight-paciente {
+    color: #2563eb !important;
+    font-weight: 700 !important;
+}
+
+.seguimiento-retorno-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    transition: all 0.2s ease;
+}
+
+.seguimiento-retorno-box.box-retornado {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.inventory-container.dark-mode .seguimiento-retorno-box {
+    background: rgba(249, 115, 22, 0.12);
+    border-color: rgba(249, 115, 22, 0.3);
+}
+
+.inventory-container.dark-mode .seguimiento-retorno-box.box-retornado {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.retorno-info-texto {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.retorno-titulo {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.inventory-container.dark-mode .retorno-titulo {
+    color: #f8fafc;
+}
+
+.retorno-subtitulo {
+    font-size: 0.82rem;
+    color: #64748b;
+}
+
+.inventory-container.dark-mode .retorno-subtitulo {
+    color: #94a3b8;
+}
+
+.btn-switch-retorno {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid #f97316;
+    background: #f97316;
+    color: #ffffff;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-switch-retorno:hover {
+    background: #ea580c;
+    border-color: #ea580c;
+    transform: translateY(-1px);
+}
+
+.btn-switch-retorno.activo {
+    background: #10b981;
+    border-color: #10b981;
+}
+
+.btn-switch-retorno.activo:hover {
+    background: #059669;
+    border-color: #059669;
+}
+
+.seguimiento-nuevo-comentario {
+    margin-bottom: 20px;
+}
+
+.comentario-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 6px;
+}
+
+.inventory-container.dark-mode .comentario-label {
+    color: #cbd5e1;
+}
+
+.comentario-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.comentario-textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.inventory-container.dark-mode .comentario-textarea {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+.comentario-acciones {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+.btn-guardar-comentario {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.seguimiento-historial {
+    border-top: 1px solid #e2e8f0;
+    padding-top: 16px;
+}
+
+.inventory-container.dark-mode .seguimiento-historial {
+    border-top-color: #334155;
+}
+
+.historial-titulo {
+    margin: 0 0 12px 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #334155;
+}
+
+.inventory-container.dark-mode .historial-titulo {
+    color: #cbd5e1;
+}
+
+.comentarios-cargando,
+.comentarios-vacio {
+    text-align: center;
+    padding: 24px 16px;
+    color: #64748b;
+    font-size: 0.88rem;
+}
+
+.comentarios-vacio i {
+    font-size: 1.8rem;
+    margin-bottom: 6px;
+    color: #94a3b8;
+}
+
+.comentarios-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.comentario-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    transition: all 0.15s ease;
+}
+
+.inventory-container.dark-mode .comentario-card {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+.comentario-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.comentario-autor {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: #2563eb;
+}
+
+.inventory-container.dark-mode .comentario-autor {
+    color: #60a5fa;
+}
+
+.comentario-fecha {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.comentario-cuerpo {
+    font-size: 0.88rem;
+    color: #1e293b;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.inventory-container.dark-mode .comentario-cuerpo {
+    color: #e2e8f0;
+}
+
+/* ========================================================================= */
+/* --- BADGES PARA RECUENTO LIMA Y PROVINCIA (TABLA REPRESENTANTES VAC) --- */
+/* ========================================================================= */
+.badge-lima {
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    font-weight: 700;
+}
+
+.inventory-container.dark-mode .badge-lima {
+    background: rgba(56, 189, 248, 0.18);
+    color: #7dd3fc;
+    border-color: rgba(56, 189, 248, 0.35);
+}
+
+.badge-provincia {
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+    font-weight: 700;
+}
+
+.inventory-container.dark-mode .badge-provincia {
+    background: rgba(245, 158, 11, 0.18);
+    color: #fcd34d;
+    border-color: rgba(245, 158, 11, 0.35);
+}
+
+

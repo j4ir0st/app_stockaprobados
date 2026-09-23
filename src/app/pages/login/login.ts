@@ -43,7 +43,11 @@ export class LoginComponent {
     try {
       await this.authService.login(this.usuario(), this.password());
       console.log('Login exitoso');
-      this.router.navigate(['/inventory']);
+      if (this.authService.esUsuarioDistribucion()) {
+        this.router.navigate(['/inventory'], { queryParams: { typeKey: 'VAC' } });
+      } else {
+        this.router.navigate(['/inventory']);
+      }
     } catch (e: any) {
       console.error('Error de login:', e);
       if (e.status === 401) {

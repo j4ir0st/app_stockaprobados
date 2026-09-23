@@ -38,6 +38,31 @@ server {
         proxy_set_header Host $host;
     }
 
+    location /EV_Seguimiento {
+        proxy_pass ${API_URL};
+        proxy_set_header Host $host;
+    }
+
+    location /EV_Comentario {
+        proxy_pass ${API_URL};
+        proxy_set_header Host $host;
+    }
+
+    location /GuiasRemision {
+        proxy_pass ${API_URL};
+        proxy_set_header Host $host;
+    }
+
+    location /Stock_ERP {
+        proxy_pass ${API_URL};
+        proxy_set_header Host $host;
+    }
+
+    location /SI_Transito {
+        proxy_pass ${API_URL};
+        proxy_set_header Host $host;
+    }
+
     # Servir la aplicación
     location / {
         try_files $uri $uri/ /index.html;

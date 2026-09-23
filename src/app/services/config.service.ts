@@ -1,4 +1,5 @@
 import { Injectable, signal } from '@angular/core';
+import { User } from '../interfaces/auth.interface';
 
 @Injectable({
   providedIn: 'root'
@@ -51,10 +52,27 @@ export class ConfigService {
 
   /**
    * Devuelve los ítems de menú visibles para el usuario indicado.
+   * Si el usuario pertenece al área de Distribución, únicamente ve 'Equipos VAC'.
    * Si el usuario no tiene restricciones, retorna el menú completo.
    */
-  getMenuItemsParaUsuario(username: string | undefined): typeof this.menuItems {
+  getMenuItemsParaUsuario(user: User | string | null | undefined): typeof this.menuItems {
+    if (!user) return this.menuItems;
+
+    // Si es un objeto de usuario, verificar si pertenece al área de Distribución
+    if (typeof user === 'object') {
+      const areaId = (user.area_id || '').toString();
+      const area = (user.area || '').toString();
+      const normalize = (str: string) =>
+        str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+      if (normalize(areaId) === 'distribucion' || normalize(area) === 'distribucion') {
+        return this.menuItems.filter(item => item.label === 'Equipos VAC');
+      }
+    }
+
+    const username = typeof user === 'string' ? user : user.username;
     if (!username) return this.menuItems;
+
     const opcionesPermitidas = this.restriccionesPorUsuario[username];
     if (!opcionesPermitidas) return this.menuItems;
     return this.menuItems.filter(item => item.label === 'Equipos VAC' || opcionesPermitidas.includes(item.label));

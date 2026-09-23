@@ -12,7 +12,12 @@ const PROXY_CONFIG = [
       "/StockAprobado",
       "/SA_",
       "/api-proxy",
-      "/EquiposVAC"
+      "/EquiposVAC",
+      "/EV_Seguimiento",
+      "/EV_Comentario",
+      "/GuiasRemision",
+      "/Stock_ERP",
+      "/SI_Transito"
     ],
     target: process.env.API_URL,
     secure: true,

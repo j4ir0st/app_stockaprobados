@@ -102,4 +102,44 @@ export class AuthService {
       this.logout(); // Limpiar datos corruptos
     }
   }
+
+  /**
+   * Determina si el usuario pertenece al área de Distribución.
+   * @param user Objeto de usuario opcional (usa currentUser() por defecto).
+   */
+  esUsuarioDistribucion(user?: User | null): boolean {
+    const usuario = user !== undefined ? user : this.currentUser();
+    if (!usuario) return false;
+    const areaId = (usuario.area_id || '').toString();
+    const area = (usuario.area || '').toString();
+    const normalize = (str: string) =>
+      str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    return normalize(areaId) === 'distribucion' || normalize(area) === 'distribucion';
+  }
+
+  /**
+   * Obtiene el ID numérico del usuario actual, buscando en currentUser() o decodificando el token JWT.
+   */
+  getUserId(): number | null {
+    const user = this.currentUser();
+    if (user && (user as any).id) return Number((user as any).id);
+    if (user && (user as any).pk) return Number((user as any).pk);
+    if (user && (user as any).user_id) return Number((user as any).user_id);
+
+    const token = this.token;
+    if (token) {
+      try {
+        const parts = token.split('.');
+        if (parts.length > 1) {
+          const payloadJson = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+          const payload = JSON.parse(payloadJson);
+          if (payload.user_id) return Number(payload.user_id);
+          if (payload.id) return Number(payload.id);
+        }
+      } catch (e) {
+        console.warn('No se pudo decodificar el token JWT para obtener el user_id:', e);
+      }
+    }
+    return null;
+  }
 }

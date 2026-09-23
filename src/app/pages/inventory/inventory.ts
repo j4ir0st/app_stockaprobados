@@ -1,5 +1,5 @@
 import { Component, signal, computed, inject, OnInit, OnDestroy } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
@@ -25,7 +25,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
   public themeService = inject(ThemeService);
   private refreshService = inject(RefreshService);
   private route = inject(ActivatedRoute);
-  private authService = inject(AuthService);
+  private router = inject(Router);
+  public authService = inject(AuthService);
 
   private suscripcionRefresco?: Subscription;
 
@@ -85,10 +86,13 @@ export class InventoryComponent implements OnInit, OnDestroy {
     const username = (usuario.username || '').toLowerCase();
     const areaId = (usuario.area_id || '').toLowerCase();
     const areaNombre = (usuario.area || '').toLowerCase();
-    return username === 'nmalasquez' || areaId === 'atenciones' || areaNombre === 'atenciones' || areaId === 'desarrollo software' || areaNombre === 'desarrollo software';
+    return username === 'nmalasquez' ||
+      areaId === 'atenciones' || areaNombre === 'atenciones' ||
+      areaId === 'desarrollo software' || areaNombre === 'desarrollo software' ||
+      this.authService.esUsuarioDistribucion(usuario);
   });
 
-  ordenResumenColumna = signal<'cantidad' | 'representante'>('cantidad');
+  ordenResumenColumna = signal<'cantidad' | 'representante' | 'promedioDias' | 'lima' | 'provincia'>('cantidad');
   ordenResumenDireccion = signal<'asc' | 'desc'>('desc'); // default: de mayor a menor (desc)
 
   // Estado del ordenamiento por columna para la tabla principal (StockAprobado)
@@ -118,22 +122,22 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.cargarStock();
   }
 
-  toggleOrdenResumen(columna: 'cantidad' | 'representante'): void {
+  toggleOrdenResumen(columna: 'cantidad' | 'representante' | 'promedioDias' | 'lima' | 'provincia'): void {
     if (this.ordenResumenColumna() === columna) {
       this.ordenResumenDireccion.set(this.ordenResumenDireccion() === 'asc' ? 'desc' : 'asc');
     } else {
       this.ordenResumenColumna.set(columna);
-      this.ordenResumenDireccion.set(columna === 'cantidad' ? 'desc' : 'asc');
+      this.ordenResumenDireccion.set((columna === 'cantidad' || columna === 'promedioDias' || columna === 'lima' || columna === 'provincia') ? 'desc' : 'asc');
     }
   }
 
-  // Agrupa los equipos consolidados de VAC por representante (solo los "internados")
+  // Agrupa los equipos consolidados de VAC por representante (solo los "internados"), calcula recuento Lima/Provincia y promedio de días
   resumenEquiposVAC = computed(() => {
     if (!this.modoCodigosFijos()) {
       return [];
     }
 
-    const mapa = new Map<string, number>();
+    const mapa = new Map<string, { cantidad: number; lima: number; provincia: number; totalDias: number }>();
     const todosLosEquipos = this.equiposVACData();
 
     todosLosEquipos.forEach((reg: any) => {
@@ -142,15 +146,30 @@ export class InventoryComponent implements OnInit, OnDestroy {
         const deposito = (reg.deposito || '').trim();
         if (deposito.endsWith('-VS') || deposito.endsWith('-C')) {
           const representante = (reg.representante || '').trim() || '—';
-          const acumulado = mapa.get(representante) || 0;
-          mapa.set(representante, acumulado + cantidad);
+          const fecha = reg.fecha_mov || reg.fecha_movimiento;
+          const dias = this.calcularDiasEmpleados(fecha);
+
+          // Verificar si la jurisdicción de guia_info contiene LIMA o CALLAO
+          const jur = (reg.guia_info?.jurisdiccion || reg.jurisdiccion || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+          const esLima = jur.includes('LIMA') || jur.includes('CALLAO');
+
+          const actual = mapa.get(representante) || { cantidad: 0, lima: 0, provincia: 0, totalDias: 0 };
+          mapa.set(representante, {
+            cantidad: actual.cantidad + cantidad,
+            lima: actual.lima + (esLima ? cantidad : 0),
+            provincia: actual.provincia + (!esLima ? cantidad : 0),
+            totalDias: actual.totalDias + (dias * cantidad)
+          });
         }
       }
     });
 
-    const resultado = Array.from(mapa.entries()).map(([representante, cantidad]) => ({
+    const resultado = Array.from(mapa.entries()).map(([representante, data]) => ({
       representante,
-      cantidad
+      cantidad: data.cantidad,
+      lima: data.lima,
+      provincia: data.provincia,
+      promedioDias: data.cantidad > 0 ? Math.round(data.totalDias / data.cantidad) : 0
     }));
 
     // Ordenar en memoria según columna y dirección
@@ -160,6 +179,12 @@ export class InventoryComponent implements OnInit, OnDestroy {
     resultado.sort((a: any, b: any) => {
       if (col === 'cantidad') {
         return dir === 'desc' ? b.cantidad - a.cantidad : a.cantidad - b.cantidad;
+      } else if (col === 'lima') {
+        return dir === 'desc' ? b.lima - a.lima : a.lima - b.lima;
+      } else if (col === 'provincia') {
+        return dir === 'desc' ? b.provincia - a.provincia : a.provincia - b.provincia;
+      } else if (col === 'promedioDias') {
+        return dir === 'desc' ? b.promedioDias - a.promedioDias : a.promedioDias - b.promedioDias;
       } else {
         const comp = a.representante.localeCompare(b.representante);
         return dir === 'desc' ? -comp : comp;
@@ -172,6 +197,38 @@ export class InventoryComponent implements OnInit, OnDestroy {
   // Calcula el total general de los equipos asignados a los representantes
   totalEquiposVAC = computed(() => {
     return this.resumenEquiposVAC().reduce((acumulado, fila) => acumulado + fila.cantidad, 0);
+  });
+
+  // Calcula el total de equipos en Lima asignados a los representantes
+  totalLimaEquiposVAC = computed(() => {
+    return this.resumenEquiposVAC().reduce((acumulado, fila) => acumulado + fila.lima, 0);
+  });
+
+  // Calcula el total de equipos en Provincia asignados a los representantes
+  totalProvinciaEquiposVAC = computed(() => {
+    return this.resumenEquiposVAC().reduce((acumulado, fila) => acumulado + fila.provincia, 0);
+  });
+
+  // Calcula el promedio general de días internados de todos los equipos asignados
+  promedioDiasTotalEquiposVAC = computed(() => {
+    const todosLosEquipos = this.equiposVACData();
+    let totalCantidad = 0;
+    let totalDias = 0;
+
+    todosLosEquipos.forEach((reg: any) => {
+      const cantidad = Math.round(reg.cantidad || 0);
+      if (cantidad > 0) {
+        const deposito = (reg.deposito || '').trim();
+        if (deposito.endsWith('-VS') || deposito.endsWith('-C')) {
+          const fecha = reg.fecha_mov || reg.fecha_movimiento;
+          const dias = this.calcularDiasEmpleados(fecha);
+          totalCantidad += cantidad;
+          totalDias += (dias * cantidad);
+        }
+      }
+    });
+
+    return totalCantidad > 0 ? Math.round(totalDias / totalCantidad) : 0;
   });
   loadingDetalle = signal(false);
   errorDetalle = signal<string | null>(null);
@@ -190,6 +247,22 @@ export class InventoryComponent implements OnInit, OnDestroy {
   mostrarCodigoProductoDetalle = signal(true); // Controla la visibilidad de la columna Código Producto en detalle
   tiempoRestanteActualizacion = signal(60); // Segundos restantes para la actualización automática de Equipos VAC
   private intervaloActualizacion: any;    // Referencia al intervalo del temporizador
+
+  // --- Estados para Seguimiento y Retorno de Equipos VAC (Área de Distribución) ---
+  seguimientosMap = signal<Map<string, any>>(new Map()); // Mapea serie en mayúsculas a EV_Seguimiento
+  modalSeguimientoAbierto = signal(false);
+  equipoSeleccionadoSeguimiento = signal<any>(null);
+  seguimientoActivo = signal<any>(null);
+  comentariosSeguimiento = signal<any[]>([]);
+  cargandoComentarios = signal(false);
+  guardandoComentario = signal(false);
+  nuevoComentarioTexto = signal('');
+
+  // --- Estados para Modal de Información de Guía de Remisión ---
+  modalGuiaAbierto = signal(false);
+  guiaSeleccionada = signal<any>(null);
+  cargandoGuia = signal(false);
+  errorGuia = signal<string | null>(null);
 
 
   // Items a mostrar según el modo activo, con filtrado y ordenamiento en memoria
@@ -253,6 +326,70 @@ export class InventoryComponent implements OnInit, OnDestroy {
     });
   });
 
+  // Mapea los pacientes que tienen múltiples equipos asignados en la vista detalle a un índice de color único y lista de series
+  pacientesRepetidosMap = computed(() => {
+    if (!this.modoCodigosFijos()) {
+      return new Map<string, { count: number; colorIndex: number; series: string[]; tooltip: string }>();
+    }
+
+    const items = this.itemsVisibles();
+    const conteo = new Map<string, { count: number; series: string[] }>();
+
+    // Contar ocurrencias y recopilar números de serie únicos por paciente normalizado
+    items.forEach(reg => {
+      const p = (reg.paciente || '').trim();
+      if (p && p !== '—' && p !== '----' && p.toUpperCase() !== 'SIN PACIENTE') {
+        const key = p.toUpperCase();
+        const serie = (reg.numero_serie || '').trim();
+        const info = conteo.get(key) || { count: 0, series: [] };
+        info.count += 1;
+        if (serie && serie !== '—' && serie !== '----' && !info.series.includes(serie)) {
+          info.series.push(serie);
+        }
+        conteo.set(key, info);
+      }
+    });
+
+    const mapaResultado = new Map<string, { count: number; colorIndex: number; series: string[]; tooltip: string }>();
+    let colorIndex = 0;
+
+    conteo.forEach((info, pacienteUpper) => {
+      if (info.count > 1) {
+        const seriesTexto = info.series.length > 0 ? ` (${info.series.join(', ')})` : '';
+        const tooltip = `Paciente con ${info.count} equipos asignados${seriesTexto}`;
+        mapaResultado.set(pacienteUpper, {
+          count: info.count,
+          colorIndex: colorIndex++,
+          series: info.series,
+          tooltip
+        });
+      }
+    });
+
+    return mapaResultado;
+  });
+
+  /**
+   * Retorna el estilo, conteo y tooltip con series para pacientes con asignaciones duplicadas.
+   * @param paciente Nombre del paciente.
+   */
+  obtenerEstiloPacienteDuplicado(paciente: string | null | undefined): { esDuplicado: boolean; clase: string; totalEquipos: number; tooltip: string } | null {
+    if (!paciente || !this.modoCodigosFijos()) return null;
+    const p = paciente.trim().toUpperCase();
+    if (!p || p === '—' || p === '----' || p === 'SIN PACIENTE') return null;
+
+    const data = this.pacientesRepetidosMap().get(p);
+    if (data && data.count > 1) {
+      return {
+        esDuplicado: true,
+        clase: `paciente-color-${data.colorIndex % 8}`,
+        totalEquipos: data.count,
+        tooltip: data.tooltip
+      };
+    }
+    return null;
+  }
+
   ngOnInit(): void {
     // Escuchar eventos de refresco desde el header
     this.suscripcionRefresco = this.refreshService.refresco$.subscribe(() => {
@@ -290,6 +427,14 @@ export class InventoryComponent implements OnInit, OnDestroy {
       const familiaTipo = params['prod_id__cat_id__familia_id__tipo'];
       const buscarParam = params['buscar']; // Nuevo: chequear si viene búsqueda en URL
       const typeKey = params['typeKey'];    // Nuevo: chequear si es modo de códigos fijos
+
+      // Restricción para usuarios de Distribución: solo pueden acceder a Equipos VAC
+      if (this.authService.esUsuarioDistribucion()) {
+        if (typeKey !== 'VAC') {
+          this.router.navigate(['/inventory'], { queryParams: { typeKey: 'VAC' } });
+          return;
+        }
+      }
 
       let filterQuery = '';
 
@@ -393,6 +538,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
       // Guardar en la señal para su uso en la vista detalle
       this.equiposVACData.set(todosLosEquipos);
+      this.cargarSeguimientosVAC();
 
       // 2. Procesar y agrupar por código de producto (prod) para armar la tabla resumen
       const itemsAgrupadosMap = new Map<string, any>();
@@ -1311,6 +1457,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
         }
 
         return {
+          url: reg.url || `${window.location.origin}/EquiposVAC/${encodeURIComponent((reg.serie || '').trim())}/`,
+          serie: (reg.serie || '').trim(),
+          prod: (reg.prod || '').trim(),
+          empresa: (reg.empresa || '').trim(),
+          descripcion: (reg.descripcion || '').trim(),
           tipo_producto: (reg.tipo_producto || '').trim(),
           numero_serie: (reg.serie || '').trim() || (reg.activo || '').trim() || '—', // Usamos el campo serie de EquiposVAC con fallback a activo
           representante: (reg.representante || '').trim() || '—',
@@ -1324,11 +1475,14 @@ export class InventoryComponent implements OnInit, OnDestroy {
           cantidad: cantidadActual,
           tipo_almacenaje: tipoAlmacenaje,
           codigo_producto: (reg.prod || '').trim(),
-          disponibilidad: this.obtenerDisponibilidad(dep, sec)
+          disponibilidad: this.obtenerDisponibilidad(dep, sec),
+          seguimiento: reg.seguimiento || null,
+          guia_info: reg.guia_info || null
         };
       });
 
       console.log(`Equipos VAC Detalle: ${todosLosResultados.length} registros cargados.`);
+      this.cargarSeguimientosVAC();
 
       // Guardar en las señales de detalle (Raw tiene todos los registros)
       this.itemsConsignacionRaw.set(todosLosResultados);
@@ -1351,13 +1505,17 @@ export class InventoryComponent implements OnInit, OnDestroy {
   }
 
   // Abre el detalle de todos los equipos VAC internados, agrupados/ordenados por representante en el frontend
-  async verDetalleTotalGeneralVAC(): Promise<void> {
+  async verDetalleTotalGeneralVAC(representanteFiltro?: string): Promise<void> {
     this.tiempoRestanteActualizacion.set(60);
+    const repTexto = representanteFiltro && representanteFiltro.trim() !== '' && representanteFiltro.trim() !== '—'
+      ? representanteFiltro.trim()
+      : (representanteFiltro === '—' ? '—' : '');
+
     // Definimos un producto seleccionado ficticio para mostrar en la cabecera
     this.productoSeleccionado.set({
       prod_id: {
         codigo: 'TOTAL GENERAL',
-        descripcion: 'TODOS LOS EQUIPOS VAC INTERNADOS'
+        descripcion: repTexto ? `EQUIPOS VAC INTERNADOS - ${repTexto}` : 'TODOS LOS EQUIPOS VAC INTERNADOS'
       }
     });
     this.itemsConsignacion.set([]);
@@ -1368,8 +1526,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.ordenFechaAscendente.set(false);
     this.filtroSerie.set('');
     this.filtroDeposito.set('');
-    this.filtroRepresentante.set('');
+    this.filtroRepresentante.set(repTexto);
     this.filtroDisponibilidad.set('');
+    this.filtroPaciente.set('');
     this.mostrarCodigoProductoDetalle.set(true);
     this.errorDetalle.set(null);
     this.loadingDetalle.set(true);
@@ -1443,6 +1602,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
         }
 
         return {
+          url: reg.url || `${window.location.origin}/EquiposVAC/${encodeURIComponent((reg.serie || '').trim())}/`,
+          serie: (reg.serie || '').trim(),
+          prod: (reg.prod || '').trim(),
+          empresa: (reg.empresa || '').trim(),
+          descripcion: (reg.descripcion || '').trim(),
           tipo_producto: (reg.tipo_producto || '').trim(),
           numero_serie: (reg.serie || '').trim() || (reg.activo || '').trim() || '—',
           representante: (reg.representante || '').trim() || '—',
@@ -1456,7 +1620,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
           cantidad: cantidadActual,
           tipo_almacenaje: tipoAlmacenaje,
           codigo_producto: (reg.prod || '').trim(),
-          disponibilidad: this.obtenerDisponibilidad(dep, sec)
+          disponibilidad: this.obtenerDisponibilidad(dep, sec),
+          seguimiento: reg.seguimiento || null,
+          guia_info: reg.guia_info || null
         };
       });
 
@@ -1464,6 +1630,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       todosLosResultados.sort((a: any, b: any) => a.representante.localeCompare(b.representante));
 
       console.log(`Equipos VAC Detalle Total General: ${todosLosResultados.length} registros cargados.`);
+      this.cargarSeguimientosVAC();
 
       this.itemsConsignacionRaw.set(todosLosResultados);
       this.itemsConsignacion.set(todosLosResultados);
@@ -1511,6 +1678,336 @@ export class InventoryComponent implements OnInit, OnDestroy {
     if (this.modoCodigosFijos() && this.puedeVerTablaActualVAC()) {
       this.mostrarTablaActualVAC.set(!this.mostrarTablaActualVAC());
     }
+  }
+
+  // =========================================================================
+  // --- MÉTODOS DE SEGUIMIENTO Y RETORNO DE EQUIPOS VAC (DISTRIBUCIÓN) ---
+  // =========================================================================
+
+  /**
+   * Carga la lista de seguimientos de Equipos VAC desde la API y actualiza el mapa en memoria.
+   */
+  async cargarSeguimientosVAC(): Promise<void> {
+    try {
+      const nuevoMapa = new Map<string, any>(this.seguimientosMap());
+      // 1. Poblar con los seguimientos integrados en equiposVACData
+      const equipos = this.equiposVACData();
+      if (equipos && equipos.length > 0) {
+        equipos.forEach((reg: any) => {
+          if (reg.serie && reg.seguimiento) {
+            nuevoMapa.set(reg.serie.trim().toUpperCase(), reg.seguimiento);
+          }
+        });
+      }
+
+      // 2. Consultar endpoint EV_Seguimiento para sincronización
+      const respuesta = await firstValueFrom(this.apiService.getSeguimientosVAC());
+      const lista = respuesta?.results || (Array.isArray(respuesta) ? respuesta : []);
+      lista.forEach((s: any) => {
+        if (s.serie) {
+          nuevoMapa.set(s.serie.trim().toUpperCase(), s);
+        }
+      });
+      this.seguimientosMap.set(nuevoMapa);
+    } catch (err) {
+      console.warn('No se pudieron cargar los seguimientos VAC:', err);
+    }
+  }
+
+  /**
+   * Retorna el objeto de seguimiento asociado a una serie de equipo VAC.
+   * @param serie Número de serie del equipo.
+   */
+  obtenerSeguimiento(serie: string | null | undefined): any {
+    if (!serie) return null;
+    const s = serie.trim().toUpperCase();
+    return this.seguimientosMap().get(s) || null;
+  }
+
+  /**
+   * Alterna el estado de retorno de un equipo VAC (recogido / por recoger).
+   * Solo disponible para el área de Distribución.
+   * @param item Objeto de equipo en la tabla detalle.
+   * @param event Evento de clic del navegador.
+   */
+  async toggleVolvioAlmacen(item: any, event?: Event): Promise<void> {
+    if (event) event.stopPropagation();
+    if (!this.authService.esUsuarioDistribucion()) return;
+
+    const serie = (item.numero_serie || item.serie || '').trim();
+    if (!serie || serie === '—') return;
+
+    const serieUpper = serie.toUpperCase();
+    const actual = this.seguimientosMap().get(serieUpper);
+    const nuevoVolvio = actual ? !actual.volvio_almacen : true;
+    const fechaRetorno = nuevoVolvio ? new Date().toISOString() : null;
+
+    // Actualización optimista inmediata en memoria
+    const nuevoSeg = {
+      ...(actual || {}),
+      serie: serie,
+      volvio_almacen: nuevoVolvio,
+      fecha_retorno: fechaRetorno,
+      total_comentarios: actual?.total_comentarios || actual?.comentarios?.length || 0
+    };
+    const mapaActualizado = new Map(this.seguimientosMap());
+    mapaActualizado.set(serieUpper, nuevoSeg);
+    this.seguimientosMap.set(mapaActualizado);
+
+    try {
+      const res = await firstValueFrom(this.apiService.actualizarEstadoRetornoVAC(serie, nuevoVolvio));
+      if (res) {
+        mapaActualizado.set(serieUpper, { ...nuevoSeg, ...res });
+        this.seguimientosMap.set(new Map(mapaActualizado));
+      }
+    } catch (err) {
+      console.error('Error al actualizar seguimiento VAC:', err);
+      // Revertir estado si falla la petición
+      if (actual) {
+        mapaActualizado.set(serieUpper, actual);
+      } else {
+        mapaActualizado.delete(serieUpper);
+      }
+      this.seguimientosMap.set(new Map(mapaActualizado));
+    }
+  }
+
+  /**
+   * Abre el modal de bitácora y seguimiento para un equipo VAC.
+   * @param item Objeto del equipo seleccionado.
+   * @param event Evento de clic.
+   */
+  async abrirModalSeguimiento(item: any, event?: Event): Promise<void> {
+    if (event) event.stopPropagation();
+    this.equipoSeleccionadoSeguimiento.set(item);
+    this.nuevoComentarioTexto.set('');
+    this.cargandoComentarios.set(false);
+    this.modalSeguimientoAbierto.set(true);
+
+    const serie = (item.numero_serie || item.serie || '').trim();
+    const serieUpper = serie.toUpperCase();
+
+    // 1. Mostrar datos de inmediato si ya existen localmente
+    const segLocal = this.seguimientosMap().get(serieUpper) || item.seguimiento;
+    if (segLocal) {
+      this.seguimientoActivo.set(segLocal);
+      this.comentariosSeguimiento.set(segLocal.comentarios || []);
+    } else {
+      this.seguimientoActivo.set(null);
+      this.comentariosSeguimiento.set([]);
+    }
+
+    // 2. Refrescar detalle completo en segundo plano
+    try {
+      const res = await firstValueFrom(this.apiService.getEquipoVACDetalleCompleto(serie));
+      if (res && res.seguimiento) {
+        this.seguimientoActivo.set(res.seguimiento);
+        this.comentariosSeguimiento.set(res.seguimiento.comentarios || []);
+        const mapaActualizado = new Map(this.seguimientosMap());
+        mapaActualizado.set(serieUpper, res.seguimiento);
+        this.seguimientosMap.set(mapaActualizado);
+      }
+    } catch (err) {
+      console.warn('Detalle completo fallback:', err);
+    }
+  }
+
+  /**
+   * Cierra el modal de seguimiento y limpia el formulario de comentarios.
+   */
+  cerrarModalSeguimiento(): void {
+    this.modalSeguimientoAbierto.set(false);
+    this.equipoSeleccionadoSeguimiento.set(null);
+    this.seguimientoActivo.set(null);
+    this.comentariosSeguimiento.set([]);
+    this.nuevoComentarioTexto.set('');
+  }
+
+  /**
+   * Guarda un nuevo comentario en la bitácora de recuperación del equipo.
+   */
+  async guardarComentarioSeguimiento(): Promise<void> {
+    const texto = this.nuevoComentarioTexto().trim();
+    if (!texto) return;
+
+    const item = this.equipoSeleccionadoSeguimiento();
+    if (!item) return;
+
+    const serie = (item.numero_serie || item.serie || '').trim();
+    if (!serie || serie === '—') return;
+    const serieUpper = serie.toUpperCase();
+
+    this.guardandoComentario.set(true);
+
+    try {
+      const nuevoCom = await firstValueFrom(this.apiService.crearComentarioVAC(serie, texto));
+
+      // Agregar al historial local
+      const commentFormatted = {
+        id: nuevoCom?.id || Math.random(),
+        usuario_id: nuevoCom?.usuario,
+        usuario_nombre: nuevoCom?.usuario_nombre || this.authService.currentUser()?.full_name || 'Distribución',
+        comentario: texto,
+        fecha_registro: nuevoCom?.fecha_registro || new Date().toISOString()
+      };
+      this.comentariosSeguimiento.set([commentFormatted, ...this.comentariosSeguimiento()]);
+      this.nuevoComentarioTexto.set('');
+
+      // Actualizar contador en seguimiento
+      const segActual = this.seguimientoActivo() || {
+        serie: serie,
+        volvio_almacen: false,
+        total_comentarios: 0,
+        comentarios: []
+      };
+      const segActualizado = {
+        ...segActual,
+        id: nuevoCom?.seguimiento || segActual.id,
+        total_comentarios: (segActual.total_comentarios || 0) + 1,
+        comentarios: this.comentariosSeguimiento()
+      };
+      this.seguimientoActivo.set(segActualizado);
+      const mapaActualizado = new Map(this.seguimientosMap());
+      mapaActualizado.set(serieUpper, segActualizado);
+      this.seguimientosMap.set(mapaActualizado);
+
+    } catch (err) {
+      console.error('Error al guardar comentario:', err);
+      alert('No se pudo guardar el comentario. Intente nuevamente.');
+    } finally {
+      this.guardandoComentario.set(false);
+    }
+  }
+
+  // =========================================================================
+  // --- MÉTODOS DE MODAL DE INFORMACIÓN DE GUÍA DE REMISIÓN ---
+  // =========================================================================
+
+  /**
+   * Determina si el texto de documento corresponde a una guía de remisión.
+   * @param documento Código o número de documento.
+   */
+  esFormatoGuia(documento: string | null | undefined): boolean {
+    if (!documento) return false;
+    const doc = documento.trim().toUpperCase();
+    if (doc === '—' || doc === '----' || !doc) return false;
+    return /^T\d{1,4}-\d+$/i.test(doc) || /^[A-Z0-9]+-\d+$/i.test(doc) || doc.includes('-');
+  }
+
+  /**
+   * Abre el modal de información detallada de la Guía de Remisión.
+   * @param item Objeto de la fila en la tabla de detalle.
+   * @param event Evento de clic.
+   */
+  async abrirModalGuia(item: any, event?: Event): Promise<void> {
+    if (event) event.stopPropagation();
+    const doc = (item.documento || '').trim();
+    const serie = (item.numero_serie || item.serie || '').trim();
+
+    this.guiaSeleccionada.set(null);
+    this.errorGuia.set(null);
+    this.modalGuiaAbierto.set(true);
+
+    // 1. Si el item ya tiene guia_info precargada desde EquiposVAC masivo, mostrar de inmediato
+    if (item.guia_info && item.guia_info.nro_guia) {
+      this.guiaSeleccionada.set({
+        ...item.guia_info,
+        item_serie: serie !== '—' ? serie : null,
+        item_prod: item.codigo_producto || item.prod,
+        item_descripcion: item.descripcion,
+        item_paciente: item.paciente,
+        item_cliente: item.cliente,
+        item_representante: item.representante
+      });
+      this.cargandoGuia.set(false);
+      return;
+    }
+
+    this.cargandoGuia.set(true);
+    try {
+      // 2. Si es Equipos VAC y tiene serie, consultar detalle completo
+      if (serie && serie !== '—') {
+        const resVAC = await firstValueFrom(this.apiService.getEquipoVACDetalleCompleto(serie));
+        if (resVAC && resVAC.guia_info) {
+          this.guiaSeleccionada.set({
+            ...resVAC.guia_info,
+            item_serie: serie,
+            item_prod: item.codigo_producto || item.prod || resVAC.prod,
+            item_descripcion: item.descripcion || resVAC.descripcion,
+            item_paciente: item.paciente || resVAC.paciente,
+            item_cliente: item.cliente || resVAC.cliente,
+            item_representante: item.representante || resVAC.representante
+          });
+          this.cargandoGuia.set(false);
+          return;
+        }
+      }
+
+      // 2. Consulta directa a GuiasRemision por número de documento
+      const resGuia = await firstValueFrom(this.apiService.getGuiaRemisionPorNumero(doc));
+      const listaGuias = resGuia?.results || (Array.isArray(resGuia) ? resGuia : []);
+      if (listaGuias.length > 0) {
+        const g = listaGuias[0];
+        this.guiaSeleccionada.set({
+          nro_guia: g.nro_guia || doc,
+          empresa: g.empresa?.empresa || g.empresa_nombre || item.empresa_nombre || '—',
+          motivo: g.motivo || '—',
+          jurisdiccion: g.jurisdiccion || '—',
+          obs: g.obs || '—',
+          doctor: g.doctor || '—',
+          fecha_cirugia: g.fecha_cirugia || null,
+          entrega: g.entrega || '—',
+          sede: g.sede || '—',
+          tipo_pedido: g.tipo_pedido || '—',
+          estado: g.estado || '—',
+          salida: g.salida !== undefined ? g.salida : null,
+          fecha_guia: g.fecha_guia || null,
+          item_serie: serie !== '—' ? serie : null,
+          item_prod: item.codigo_producto || item.prod,
+          item_descripcion: item.descripcion,
+          item_paciente: item.paciente,
+          item_cliente: item.cliente,
+          item_representante: item.representante
+        });
+      } else {
+        // Fallback con los datos disponibles del registro
+        this.guiaSeleccionada.set({
+          nro_guia: doc,
+          empresa: item.empresa_nombre || 'SURGICORP S.R.L.',
+          motivo: 'TRASLADO / ATENCION MEDICA',
+          jurisdiccion: 'LIMA',
+          obs: 'Sin observaciones adicionales registradas en sistema.',
+          doctor: '—',
+          fecha_cirugia: null,
+          entrega: '—',
+          sede: '—',
+          tipo_pedido: 'NORMAL',
+          estado: 'ACT',
+          salida: true,
+          fecha_guia: item.fecha_movimiento || null,
+          item_serie: serie !== '—' ? serie : null,
+          item_prod: item.codigo_producto || item.prod,
+          item_descripcion: item.descripcion,
+          item_paciente: item.paciente,
+          item_cliente: item.cliente,
+          item_representante: item.representante
+        });
+      }
+    } catch (err) {
+      console.error('Error al cargar datos de la guía:', err);
+      this.errorGuia.set('No se pudo obtener la información completa de la guía.');
+    } finally {
+      this.cargandoGuia.set(false);
+    }
+  }
+
+  /**
+   * Cierra el modal de información de Guía de Remisión.
+   */
+  cerrarModalGuia(): void {
+    this.modalGuiaAbierto.set(false);
+    this.guiaSeleccionada.set(null);
+    this.errorGuia.set(null);
   }
 
   /**
@@ -1739,6 +2236,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
               }
 
               return {
+                url: reg.url || `${window.location.origin}/EquiposVAC/${encodeURIComponent((reg.serie || '').trim())}/`,
+                serie: (reg.serie || '').trim(),
+                prod: (reg.prod || '').trim(),
+                empresa: (reg.empresa || '').trim(),
+                descripcion: (reg.descripcion || '').trim(),
                 tipo_producto: (reg.tipo_producto || '').trim(),
                 numero_serie: (reg.serie || '').trim() || (reg.activo || '').trim() || '—',
                 representante: (reg.representante || '').trim() || '—',
@@ -1752,7 +2254,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
                 cantidad: cantidadActual,
                 tipo_almacenaje: tipoAlmacenaje,
                 codigo_producto: (reg.prod || '').trim(),
-                disponibilidad: this.obtenerDisponibilidad(dep, sec)
+                disponibilidad: this.obtenerDisponibilidad(dep, sec),
+                seguimiento: reg.seguimiento || null,
+                guia_info: reg.guia_info || null
               };
             });
 
@@ -1810,6 +2314,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
               }
 
               return {
+                url: reg.url || `${window.location.origin}/EquiposVAC/${encodeURIComponent((reg.serie || '').trim())}/`,
+                serie: (reg.serie || '').trim(),
+                prod: (reg.prod || '').trim(),
+                empresa: (reg.empresa || '').trim(),
+                descripcion: (reg.descripcion || '').trim(),
                 tipo_producto: (reg.tipo_producto || '').trim(),
                 numero_serie: (reg.serie || '').trim() || (reg.activo || '').trim() || '—',
                 representante: (reg.representante || '').trim() || '—',
@@ -1823,7 +2332,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
                 cantidad: cantidadActual,
                 tipo_almacenaje: tipoAlmacenaje,
                 codigo_producto: (reg.prod || '').trim(),
-                disponibilidad: this.obtenerDisponibilidad(dep, sec)
+                disponibilidad: this.obtenerDisponibilidad(dep, sec),
+                seguimiento: reg.seguimiento || null,
+                guia_info: reg.guia_info || null
               };
             });
 
