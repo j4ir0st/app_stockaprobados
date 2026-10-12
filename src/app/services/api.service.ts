@@ -194,9 +194,9 @@ export class ApiService {
 
   /**
    * Actualiza o crea el estado de retorno de un equipo VAC en EV_Seguimiento.
-   * Envía serie y volvio_almacen. El backend maneja la fecha y el usuario automáticamente.
+   * Envía serie y volvio_almacen ('PR', 'EP', 'RC', 'DV').
    */
-  actualizarEstadoRetornoVAC(serie: string, volvioAlmacen: boolean): Observable<any> {
+  actualizarEstadoRetornoVAC(serie: string, volvioAlmacen: string | boolean): Observable<any> {
     const cleanSerie = serie.trim();
     const baseApi = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`;
     return this.http.post<any>(`${baseApi}EV_Seguimiento/`, {
@@ -210,7 +210,7 @@ export class ApiService {
    */
   crearSeguimientoVAC(data: any): Observable<any> {
     const serie = (typeof data === 'string' ? data : (data.serie || '')).trim();
-    const volvio = typeof data === 'object' && data.volvio_almacen !== undefined ? !!data.volvio_almacen : true;
+    const volvio = typeof data === 'object' && data.volvio_almacen !== undefined ? data.volvio_almacen : 'PR';
     return this.actualizarEstadoRetornoVAC(serie, volvio);
   }
 
@@ -219,7 +219,7 @@ export class ApiService {
    */
   actualizarSeguimientoVAC(idOrSerie: number | string, data: any): Observable<any> {
     const baseApi = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`;
-    const volvio = data.volvio_almacen !== undefined ? !!data.volvio_almacen : true;
+    const volvio = data.volvio_almacen !== undefined ? data.volvio_almacen : 'PR';
     if (typeof idOrSerie === 'string') {
       return this.actualizarEstadoRetornoVAC(idOrSerie, volvio);
     }

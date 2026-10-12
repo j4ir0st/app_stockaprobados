@@ -191,7 +191,7 @@
             <th>CATEGORÍA</th>
             <th>CÓDIGO</th>
             <th>DESCRIPCIÓN</th>
-            <th title="Stock para Cx" style="cursor: help;" class="celda-centrada">STOCK PARA CX</th>
+            <th title="STOCK disponible para envío a cirugia" style="cursor: help;" class="celda-centrada">STOCK DISPONIBLE</th>
             <th title="Pendiente de Revisión" style="cursor: help;" class="celda-centrada">PEND. REVISIÓN</th>
             <th title="Ingeniería - 6to Piso" style="cursor: help;" class="celda-centrada">INGENIERÍA - 6TO PISO</th>
             <th title="Nueva Importación" style="cursor: help;" class="celda-centrada">NUEVA IMPORTACIÓN</th>
@@ -473,6 +473,31 @@
             }
           </div>
           }
+          <!-- Filtro por estado de seguimiento -->
+          @if (modoCodigosFijos()) {
+          <div class="filtro-detalle-wrapper">
+            <i class="fas fa-clipboard-check filtro-detalle-icono"></i>
+            <input type="text" class="filtro-detalle-input" [ngModel]="filtroSeguimiento()"
+              (ngModelChange)="filtroSeguimiento.set($event)" list="estadosRecojoDatalist"
+              placeholder="Filtrar seguimiento..."
+              title="Filtrar registros por estado de seguimiento (PR, EP, RC, DV)">
+            <datalist id="estadosRecojoDatalist">
+              <option value="PR">Por recoger</option>
+              <option value="EP">En proceso de recojo</option>
+              <option value="RC">Recogido</option>
+              <option value="DV">Devuelto al almacén</option>
+              <option value="Por recoger"></option>
+              <option value="En proceso de recojo"></option>
+              <option value="Recogido"></option>
+              <option value="Devuelto al almacén"></option>
+            </datalist>
+            @if (filtroSeguimiento()) {
+            <button class="filtro-detalle-clear" (click)="filtroSeguimiento.set('')" title="Limpiar filtro">
+              <i class="fas fa-times"></i>
+            </button>
+            }
+          </div>
+          }
           <!-- Filtro por representante -->
           @if (modoCodigosFijos()) {
           <div class="filtro-detalle-wrapper">
@@ -632,7 +657,7 @@
               <th class="celda-centrada">Cantidad</th>
               }
               @if (modoCodigosFijos() && authService.esUsuarioDistribucion()) {
-              <th class="celda-centrada" title="Estado de recojo y bitácora de seguimiento">Retorno / Seguimiento</th>
+              <th class="celda-centrada" title="Estado de recojo y bitácora de seguimiento">Seguimiento</th>
               }
             </tr>
           </thead>
@@ -713,20 +738,26 @@
               }
               @if (modoCodigosFijos() && authService.esUsuarioDistribucion()) {
               <td class="celda-centrada celda-seguimiento-vac">
-                @let seg = obtenerSeguimiento(reg.numero_serie);
+                @let seg = obtenerSeguimiento(reg.numero_serie || reg.serie);
+                @let claveActual = obtenerClaveEstadoRecojo(seg);
                 <div class="seguimiento-acciones-grupo">
-                  <button type="button" class="btn-retorno-toggle"
-                    [class.retornado]="seg?.volvio_almacen"
-                    (click)="toggleVolvioAlmacen(reg, $event)"
-                    [title]="seg?.volvio_almacen ? 'Equipo recogido y retornado al almacén (' + (seg?.fecha_retorno | date:'dd/MM/yyyy HH:mm') + '). Clic para desmarcar.' : 'Pendiente de recojo. Clic para marcar como recogido.'">
-                    <i class="fas" [class.fa-check-circle]="seg?.volvio_almacen" [class.fa-circle]="!seg?.volvio_almacen"></i>
-                    <span>{{ seg?.volvio_almacen ? 'Recogido' : 'Por Recoger' }}</span>
-                  </button>
+                  <div class="select-recojo-container" [ngClass]="obtenerClaseEstadoRecojo(seg)">
+                    <i class="fas icono-select-recojo" [ngClass]="obtenerIconoEstadoRecojo(seg)"></i>
+                    <select class="select-estado-recojo"
+                      [value]="claveActual"
+                      (change)="onCambiarEstadoSelect(reg, $event)"
+                      (click)="$event.stopPropagation()"
+                      title="Cambiar estado del proceso de recojo">
+                      @for (est of estadosRecojoList; track est.clave) {
+                      <option [value]="est.clave" [selected]="est.clave === claveActual">{{ est.label }}</option>
+                      }
+                    </select>
+                  </div>
 
                   <button type="button" class="btn-comentarios-vac"
                     [class.con-comentarios]="(seg?.total_comentarios || seg?.comentarios?.length || 0) > 0"
                     (click)="abrirModalSeguimiento(reg, $event)"
-                    [title]="'Bitácora de seguimiento (' + (seg?.total_comentarios || seg?.comentarios?.length || 0) + ' comentarios)'">
+                    [title]="'Bitácora de seguimiento (' + (seg?.total_comentarios || seg?.comentarios?.length || 0) + ' observaciones)'">
                     <i class="fas" [class.fa-comment-dots]="(seg?.total_comentarios || seg?.comentarios?.length || 0) > 0" [class.fa-comment]="(seg?.total_comentarios || seg?.comentarios?.length || 0) === 0"></i>
                     @if ((seg?.total_comentarios || seg?.comentarios?.length || 0) > 0) {
                     <span class="badge-comentarios-count">{{ seg?.total_comentarios || seg?.comentarios?.length }}</span>
@@ -763,290 +794,315 @@
     }
 
   </div>
-</div>
 
-<!-- ========================================================================= -->
-<!-- --- MODAL: INFORMACIÓN DE GUÍA DE REMISIÓN --- -->
-<!-- ========================================================================= -->
-@if (modalGuiaAbierto()) {
-<div class="modal-backdrop" (click)="cerrarModalGuia()">
-  <div class="modal-dialog modal-guia-dialog" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-titulo-wrapper">
-        <div class="modal-icono-guia">
-          <i class="fas fa-file-invoice"></i>
-        </div>
-        <div>
-          <h3 class="modal-titulo">Guía de Remisión: {{ guiaSeleccionada()?.nro_guia || 'Información de Guía' }}</h3>
-          <span class="badge badge-empresa-header">{{ guiaSeleccionada()?.empresa || 'SURGICORP S.R.L.' }}</span>
-        </div>
-      </div>
-      <button type="button" class="btn-modal-cerrar" (click)="cerrarModalGuia()" title="Cerrar modal">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-
-    <div class="modal-body">
-      @if (cargandoGuia()) {
-      <div class="modal-cargando">
-        <i class="fas fa-spinner fa-spin"></i>
-        <p>Consultando datos de la guía de remisión...</p>
-      </div>
-      } @else if (errorGuia()) {
-      <div class="modal-alerta-error">
-        <i class="fas fa-exclamation-triangle"></i>
-        <span>{{ errorGuia() }}</span>
-      </div>
-      } @else if (guiaSeleccionada(); as guia) {
-      <!-- Badges de Estado Superior -->
-      <div class="guia-resumen-badges">
-        <div class="guia-badge-item">
-          <span class="guia-badge-label">ESTADO:</span>
-          <span class="badge badge-estado-act">{{ guia.estado || 'ACT' }}</span>
-        </div>
-        @if (guia.salida !== null && guia.salida !== undefined) {
-        <div class="guia-badge-item">
-          <span class="guia-badge-label">SALIDA:</span>
-          <span class="badge" [class.badge-success]="guia.salida" [class.badge-danger]="!guia.salida">
-            {{ guia.salida ? 'SÍ' : 'NO' }}
-          </span>
-        </div>
-        }
-        @if (guia.tipo_pedido && guia.tipo_pedido !== '—') {
-        <div class="guia-badge-item">
-          <span class="guia-badge-label">TIPO PEDIDO:</span>
-          <span class="badge badge-tipo-pedido">{{ guia.tipo_pedido }}</span>
-        </div>
-        }
-      </div>
-
-      <!-- Grid de Información de la Guía -->
-      <div class="guia-info-grid">
-        <!-- Motivo -->
-        <div class="guia-campo-card">
-          <div class="guia-campo-icono"><i class="fas fa-truck-moving"></i></div>
-          <div class="guia-campo-contenido">
-            <span class="guia-campo-titulo">Motivo de Traslado</span>
-            <p class="guia-campo-valor">{{ guia.motivo || '—' }}</p>
+  <!-- ========================================================================= -->
+  <!-- --- MODAL: INFORMACIÓN DE GUÍA DE REMISIÓN --- -->
+  <!-- ========================================================================= -->
+  @if (modalGuiaAbierto()) {
+  <div class="modal-backdrop" (click)="cerrarModalGuia()">
+    <div class="modal-dialog modal-guia-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-titulo-wrapper">
+          <div class="modal-icono-guia">
+            <i class="fas fa-file-invoice"></i>
+          </div>
+          <div>
+            <h3 class="modal-titulo">Guía de Remisión: {{ guiaSeleccionada()?.nro_guia || 'Información de Guía' }}</h3>
+            <span class="badge badge-empresa-header">{{ guiaSeleccionada()?.empresa || 'SURGICORP S.R.L.' }}</span>
           </div>
         </div>
-
-        <!-- Jurisdicción -->
-        <div class="guia-campo-card">
-          <div class="guia-campo-icono"><i class="fas fa-map-marked-alt"></i></div>
-          <div class="guia-campo-contenido">
-            <span class="guia-campo-titulo">Jurisdicción</span>
-            <p class="guia-campo-valor">{{ guia.jurisdiccion || '—' }}</p>
-          </div>
-        </div>
-
-        <!-- Sede -->
-        <div class="guia-campo-card">
-          <div class="guia-campo-icono"><i class="fas fa-hospital-alt"></i></div>
-          <div class="guia-campo-contenido">
-            <span class="guia-campo-titulo">Sede</span>
-            <p class="guia-campo-valor">{{ guia.sede || '—' }}</p>
-          </div>
-        </div>
-
-        <!-- Doctor -->
-        <div class="guia-campo-card">
-          <div class="guia-campo-icono"><i class="fas fa-user-md"></i></div>
-          <div class="guia-campo-contenido">
-            <span class="guia-campo-titulo">Doctor / Especialista</span>
-            <p class="guia-campo-valor">{{ guia.doctor || '—' }}</p>
-          </div>
-        </div>
-
-        <!-- Fecha Cirugía -->
-        <div class="guia-campo-card">
-          <div class="guia-campo-icono"><i class="fas fa-calendar-check"></i></div>
-          <div class="guia-campo-contenido">
-            <span class="guia-campo-titulo">Fecha de Cirugía</span>
-            <p class="guia-campo-valor">{{ (guia.fecha_cirugia | date:'dd/MM/yyyy HH:mm') || '—' }}</p>
-          </div>
-        </div>
-
-        <!-- Fecha Guía -->
-        <div class="guia-campo-card">
-          <div class="guia-campo-icono"><i class="fas fa-calendar-alt"></i></div>
-          <div class="guia-campo-contenido">
-            <span class="guia-campo-titulo">Fecha de Guía</span>
-            <p class="guia-campo-valor">{{ (guia.fecha_guia | date:'dd/MM/yyyy HH:mm') || '—' }}</p>
-          </div>
-        </div>
-
-        <!-- Dirección de Entrega -->
-        <div class="guia-campo-card full-width">
-          <div class="guia-campo-icono"><i class="fas fa-map-marker-alt"></i></div>
-          <div class="guia-campo-contenido">
-            <span class="guia-campo-titulo">Dirección de Entrega</span>
-            <p class="guia-campo-valor">{{ guia.entrega || '—' }}</p>
-          </div>
-        </div>
-
-        <!-- Observaciones -->
-        <div class="guia-campo-card full-width">
-          <div class="guia-campo-icono"><i class="fas fa-info-circle"></i></div>
-          <div class="guia-campo-contenido">
-            <span class="guia-campo-titulo">Observaciones (Obs)</span>
-            <p class="guia-campo-valor obs-texto">{{ guia.obs || 'Sin observaciones registradas.' }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Ficha de Contexto del Equipo / Paciente -->
-      @if (guia.item_serie || guia.item_paciente) {
-      <div class="guia-contexto-equipo">
-        <h4 class="guia-contexto-titulo"><i class="fas fa-box-open"></i> Datos del Producto / Asignación</h4>
-        <div class="guia-contexto-grid">
-          @if (guia.item_serie) {
-          <div><strong>Serie:</strong> {{ guia.item_serie }}</div>
-          }
-          @if (guia.item_prod) {
-          <div><strong>Código:</strong> {{ guia.item_prod }}</div>
-          }
-          @if (guia.item_paciente) {
-          <div><strong>Paciente:</strong> {{ guia.item_paciente }}</div>
-          }
-          @if (guia.item_cliente) {
-          <div><strong>Cliente:</strong> {{ guia.item_cliente }}</div>
-          }
-          @if (guia.item_representante) {
-          <div><strong>Representante:</strong> {{ guia.item_representante }}</div>
-          }
-        </div>
-      </div>
-      }
-      }
-    </div>
-  </div>
-</div>
-}
-
-<!-- ========================================================================= -->
-<!-- --- MODAL: SEGUIMIENTO Y BITÁCORA DE EQUIPOS VAC (DISTRIBUCIÓN) --- -->
-<!-- ========================================================================= -->
-@if (modalSeguimientoAbierto()) {
-<div class="modal-backdrop" (click)="cerrarModalSeguimiento()">
-  <div class="modal-dialog modal-seguimiento-dialog" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-titulo-wrapper">
-        <div class="modal-icono-seguimiento">
-          <i class="fas fa-truck-loading"></i>
-        </div>
-        <div>
-          <h3 class="modal-titulo">Seguimiento de Equipo: {{ equipoSeleccionadoSeguimiento()?.numero_serie }}</h3>
-          <p class="modal-subtitulo">{{ equipoSeleccionadoSeguimiento()?.codigo_producto }} — {{ equipoSeleccionadoSeguimiento()?.descripcion || 'EQUIPO VAC' }}</p>
-        </div>
-      </div>
-      <button type="button" class="btn-modal-cerrar" (click)="cerrarModalSeguimiento()" title="Cerrar modal">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-
-    <div class="modal-body">
-      <!-- Ficha Resumen del Equipo -->
-      <div class="seguimiento-resumen-card">
-        <div class="seguimiento-resumen-grid">
-          <div class="seguimiento-resumen-item">
-            <span class="label">Paciente:</span>
-            <span class="valor highlight-paciente">{{ equipoSeleccionadoSeguimiento()?.paciente || '—' }}</span>
-          </div>
-          <div class="seguimiento-resumen-item">
-            <span class="label">Cliente:</span>
-            <span class="valor">{{ equipoSeleccionadoSeguimiento()?.cliente || '—' }}</span>
-          </div>
-          <div class="seguimiento-resumen-item">
-            <span class="label">Representante:</span>
-            <span class="valor">{{ equipoSeleccionadoSeguimiento()?.representante || '—' }}</span>
-          </div>
-          <div class="seguimiento-resumen-item">
-            <span class="label">Documento:</span>
-            <span class="valor">{{ equipoSeleccionadoSeguimiento()?.documento || '—' }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Switch Estado de Retorno -->
-      <div class="seguimiento-retorno-box" [class.box-retornado]="seguimientoActivo()?.volvio_almacen">
-        <div class="retorno-info-texto">
-          <span class="retorno-titulo">¿El equipo ya retornó al almacén?</span>
-          <span class="retorno-subtitulo">
-            @if (seguimientoActivo()?.volvio_almacen) {
-            <i class="fas fa-check-circle"></i> Recogido y retornado al almacén ({{ seguimientoActivo()?.fecha_retorno | date:'dd/MM/yyyy HH:mm' }})
-            } @else {
-            <i class="fas fa-clock"></i> Pendiente de recojo / Equipo internado en centro médico
-            }
-          </span>
-        </div>
-        <button type="button" class="btn-switch-retorno"
-          [class.activo]="seguimientoActivo()?.volvio_almacen"
-          (click)="toggleVolvioAlmacen(equipoSeleccionadoSeguimiento())">
-          <i class="fas" [class.fa-check]="seguimientoActivo()?.volvio_almacen" [class.fa-times]="!seguimientoActivo()?.volvio_almacen"></i>
-          {{ seguimientoActivo()?.volvio_almacen ? 'Equipo Recogido' : 'Por Recoger' }}
+        <button type="button" class="btn-modal-cerrar" (click)="cerrarModalGuia()" title="Cerrar modal">
+          <i class="fas fa-times"></i>
         </button>
       </div>
 
-      <!-- Formulario para Agregar Comentario -->
-      <div class="seguimiento-nuevo-comentario">
-        <label class="comentario-label" for="txtComentarioVAC">
-          <i class="fas fa-edit"></i> Registrar Observación / Motivo por el que no se pudo recoger
-        </label>
-        <textarea id="txtComentarioVAC" class="comentario-textarea" rows="3"
-          [(ngModel)]="nuevoComentarioTexto"
-          placeholder="Escriba aquí el motivo o estado de la coordinación (ej: paciente continúa en tratamiento, coordinado recojo con logística para mañana a las 9am)..."></textarea>
-        <div class="comentario-acciones">
-          <button type="button" class="btn btn-primary btn-guardar-comentario"
-            [disabled]="!nuevoComentarioTexto().trim() || guardandoComentario()"
-            (click)="guardarComentarioSeguimiento()">
-            @if (guardandoComentario()) {
-            <i class="fas fa-spinner fa-spin"></i> Guardando...
-            } @else {
-            <i class="fas fa-paper-plane"></i> Guardar Observación
-            }
-          </button>
-        </div>
-      </div>
-
-      <!-- Bitácora de Comentarios Anteriores -->
-      <div class="seguimiento-historial">
-        <h4 class="historial-titulo">
-          <i class="fas fa-history"></i> Bitácora de Observaciones e Intentos de Recuperación ({{ comentariosSeguimiento().length }})
-        </h4>
-
-        @if (cargandoComentarios()) {
-        <div class="comentarios-cargando">
+      <div class="modal-body">
+        @if (cargandoGuia()) {
+        <div class="modal-cargando">
           <i class="fas fa-spinner fa-spin"></i>
-          <span>Cargando bitácora...</span>
+          <p>Consultando datos de la guía de remisión...</p>
         </div>
-        } @else if (comentariosSeguimiento().length === 0) {
-        <div class="comentarios-vacio">
-          <i class="far fa-comment-dots"></i>
-          <p>No se han registrado observaciones aún para este equipo.</p>
+        } @else if (errorGuia()) {
+        <div class="modal-alerta-error">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>{{ errorGuia() }}</span>
         </div>
-        } @else {
-        <div class="comentarios-timeline">
-          @for (com of comentariosSeguimiento(); track com.id) {
-          <div class="comentario-card">
-            <div class="comentario-header">
-              <div class="comentario-autor">
-                <i class="fas fa-user-circle"></i>
-                <strong>{{ com.usuario_nombre || 'Distribución' }}</strong>
-              </div>
-              <span class="comentario-fecha">
-                <i class="far fa-clock"></i> {{ com.fecha_registro | date:'dd/MM/yyyy HH:mm' }}
-              </span>
-            </div>
-            <div class="comentario-cuerpo">
-              {{ com.comentario }}
-            </div>
+        } @else if (guiaSeleccionada(); as guia) {
+        <!-- Badges de Estado Superior -->
+        <div class="guia-resumen-badges">
+          <div class="guia-badge-item">
+            <span class="guia-badge-label">ESTADO:</span>
+            <span class="badge badge-estado-act">{{ guia.estado || 'ACT' }}</span>
+          </div>
+          @if (guia.salida !== null && guia.salida !== undefined) {
+          <div class="guia-badge-item">
+            <span class="guia-badge-label">SALIDA:</span>
+            <span class="badge" [class.badge-success]="guia.salida" [class.badge-danger]="!guia.salida">
+              {{ guia.salida ? 'SÍ' : 'NO' }}
+            </span>
+          </div>
+          }
+          @if (guia.tipo_pedido && guia.tipo_pedido !== '—') {
+          <div class="guia-badge-item">
+            <span class="guia-badge-label">TIPO PEDIDO:</span>
+            <span class="badge badge-tipo-pedido">{{ guia.tipo_pedido }}</span>
           </div>
           }
         </div>
+
+        <!-- Grid de Información de la Guía -->
+        <div class="guia-info-grid">
+          <!-- Motivo -->
+          <div class="guia-campo-card">
+            <div class="guia-campo-icono"><i class="fas fa-truck-moving"></i></div>
+            <div class="guia-campo-contenido">
+              <span class="guia-campo-titulo">Motivo de Traslado</span>
+              <p class="guia-campo-valor">{{ guia.motivo || '—' }}</p>
+            </div>
+          </div>
+
+          <!-- Jurisdicción -->
+          <div class="guia-campo-card">
+            <div class="guia-campo-icono"><i class="fas fa-map-marked-alt"></i></div>
+            <div class="guia-campo-contenido">
+              <span class="guia-campo-titulo">Jurisdicción</span>
+              <p class="guia-campo-valor">{{ guia.jurisdiccion || '—' }}</p>
+            </div>
+          </div>
+
+          <!-- Sede -->
+          <div class="guia-campo-card">
+            <div class="guia-campo-icono"><i class="fas fa-hospital-alt"></i></div>
+            <div class="guia-campo-contenido">
+              <span class="guia-campo-titulo">Sede</span>
+              <p class="guia-campo-valor">{{ guia.sede || '—' }}</p>
+            </div>
+          </div>
+
+          <!-- Doctor -->
+          <div class="guia-campo-card">
+            <div class="guia-campo-icono"><i class="fas fa-user-md"></i></div>
+            <div class="guia-campo-contenido">
+              <span class="guia-campo-titulo">Doctor / Especialista</span>
+              <p class="guia-campo-valor">{{ guia.doctor || '—' }}</p>
+            </div>
+          </div>
+
+          <!-- Fecha Cirugía -->
+          <div class="guia-campo-card">
+            <div class="guia-campo-icono"><i class="fas fa-calendar-check"></i></div>
+            <div class="guia-campo-contenido">
+              <span class="guia-campo-titulo">Fecha de Cirugía</span>
+              <p class="guia-campo-valor">{{ (guia.fecha_cirugia | date:'dd/MM/yyyy HH:mm') || '—' }}</p>
+            </div>
+          </div>
+
+          <!-- Fecha Guía -->
+          <div class="guia-campo-card">
+            <div class="guia-campo-icono"><i class="fas fa-calendar-alt"></i></div>
+            <div class="guia-campo-contenido">
+              <span class="guia-campo-titulo">Fecha de Guía</span>
+              <p class="guia-campo-valor">{{ (guia.fecha_guia | date:'dd/MM/yyyy HH:mm') || '—' }}</p>
+            </div>
+          </div>
+
+          <!-- Dirección de Entrega -->
+          <div class="guia-campo-card full-width">
+            <div class="guia-campo-icono"><i class="fas fa-map-marker-alt"></i></div>
+            <div class="guia-campo-contenido">
+              <span class="guia-campo-titulo">Dirección de Entrega</span>
+              <p class="guia-campo-valor">{{ guia.entrega || '—' }}</p>
+            </div>
+          </div>
+
+          <!-- Observaciones -->
+          <div class="guia-campo-card full-width">
+            <div class="guia-campo-icono"><i class="fas fa-info-circle"></i></div>
+            <div class="guia-campo-contenido">
+              <span class="guia-campo-titulo">Observaciones (Obs)</span>
+              <p class="guia-campo-valor obs-texto">{{ guia.obs || 'Sin observaciones registradas.' }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ficha de Contexto del Equipo / Paciente -->
+        @if (guia.item_serie || guia.item_paciente) {
+        <div class="guia-contexto-equipo">
+          <h4 class="guia-contexto-titulo"><i class="fas fa-box-open"></i> Datos del Producto / Asignación</h4>
+          <div class="guia-contexto-grid">
+            @if (guia.item_serie) {
+            <div><strong>Serie:</strong> {{ guia.item_serie }}</div>
+            }
+            @if (guia.item_prod) {
+            <div><strong>Código:</strong> {{ guia.item_prod }}</div>
+            }
+            @if (guia.item_paciente) {
+            <div><strong>Paciente:</strong> {{ guia.item_paciente }}</div>
+            }
+            @if (guia.item_cliente) {
+            <div><strong>Cliente:</strong> {{ guia.item_cliente }}</div>
+            }
+            @if (guia.item_representante) {
+            <div><strong>Representante:</strong> {{ guia.item_representante }}</div>
+            }
+          </div>
+        </div>
+        }
         }
       </div>
     </div>
   </div>
+  }
+
+  <!-- ========================================================================= -->
+  <!-- --- MODAL: SEGUIMIENTO Y BITÁCORA DE EQUIPOS VAC (DISTRIBUCIÓN) --- -->
+  <!-- ========================================================================= -->
+  @if (modalSeguimientoAbierto()) {
+  <div class="modal-backdrop" (click)="cerrarModalSeguimiento()">
+    <div class="modal-dialog modal-seguimiento-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-titulo-wrapper">
+          <div class="modal-icono-seguimiento">
+            <i class="fas fa-truck-loading"></i>
+          </div>
+          <div>
+            <h3 class="modal-titulo">Seguimiento de Equipo: {{ equipoSeleccionadoSeguimiento()?.numero_serie }}</h3>
+            <p class="modal-subtitulo">{{ equipoSeleccionadoSeguimiento()?.codigo_producto }} — {{ equipoSeleccionadoSeguimiento()?.descripcion || 'EQUIPO VAC' }}</p>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-cerrar" (click)="cerrarModalSeguimiento()" title="Cerrar modal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Ficha Resumen del Equipo -->
+        <div class="seguimiento-resumen-card">
+          <div class="seguimiento-resumen-grid">
+            <div class="seguimiento-resumen-item">
+              <span class="label">Paciente:</span>
+              <span class="valor highlight-paciente">{{ equipoSeleccionadoSeguimiento()?.paciente || '—' }}</span>
+            </div>
+            <div class="seguimiento-resumen-item">
+              <span class="label">Cliente:</span>
+              <span class="valor">{{ equipoSeleccionadoSeguimiento()?.cliente || '—' }}</span>
+            </div>
+            <div class="seguimiento-resumen-item">
+              <span class="label">Representante:</span>
+              <span class="valor">{{ equipoSeleccionadoSeguimiento()?.representante || '—' }}</span>
+            </div>
+            <div class="seguimiento-resumen-item">
+              <span class="label">Documento:</span>
+              <span class="valor">{{ equipoSeleccionadoSeguimiento()?.documento || '—' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Selector de Etapa del Proceso de Recojo -->
+        @let claveModal = obtenerClaveEstadoRecojo(seguimientoActivo());
+        <div class="seguimiento-etapas-panel" [ngClass]="obtenerClaseEstadoRecojo(seguimientoActivo())">
+          <div class="etapas-panel-header">
+            <div class="etapas-header-texto">
+              <span class="etapas-titulo">
+                <i class="fas" [ngClass]="obtenerIconoEstadoRecojo(seguimientoActivo())"></i>
+                Estado Actual: <strong>{{ obtenerTextoEstadoRecojo(seguimientoActivo()) }}</strong>
+              </span>
+              <span class="etapas-subtitulo">
+                @if (seguimientoActivo()?.fecha_retorno && (claveModal === 'RC' || claveModal === 'DV')) {
+                <i class="fas fa-calendar-check"></i> Registrado: {{ seguimientoActivo()?.fecha_retorno | date:'dd/MM/yyyy HH:mm' }}
+                } @else {
+                <i class="fas fa-info-circle"></i> Seleccione la etapa actual en la que se encuentra el equipo
+                }
+                @if (seguimientoActivo()?.usuario_registro_nombre) {
+                &bull; Usuario: <strong>{{ seguimientoActivo()?.usuario_registro_nombre }}</strong>
+                }
+              </span>
+            </div>
+          </div>
+
+          <!-- Grid Interactivo de 4 Etapas -->
+          <div class="etapas-grid-selector">
+            @for (est of estadosRecojoList; track est.clave) {
+            <button type="button" class="btn-etapa-card"
+              [class.etapa-activa]="claveModal === est.clave"
+              [ngClass]="est.colorClass"
+              [disabled]="!authService.esUsuarioDistribucion()"
+              (click)="cambiarEstadoRecojo(equipoSeleccionadoSeguimiento(), est.clave, $event)">
+              <div class="etapa-card-icon">
+                <i class="fas" [ngClass]="est.icon"></i>
+                @if (claveModal === est.clave) {
+                <i class="fas fa-check-circle badge-check-activo"></i>
+                }
+              </div>
+              <div class="etapa-card-body">
+                <span class="etapa-card-nombre">{{ est.label }}</span>
+                <span class="etapa-card-desc">{{ est.descripcion }}</span>
+              </div>
+            </button>
+            }
+          </div>
+        </div>
+
+        <!-- Formulario para Agregar Comentario -->
+        <div class="seguimiento-nuevo-comentario">
+          <label class="comentario-label" for="txtComentarioVAC">
+            <i class="fas fa-edit"></i> Registrar Observación / Motivo por el que no se pudo recoger
+          </label>
+          <textarea id="txtComentarioVAC" class="comentario-textarea" rows="3"
+            [(ngModel)]="nuevoComentarioTexto"
+            placeholder="Escriba aquí el motivo o estado de la coordinación (ej: paciente continúa en tratamiento, coordinado recojo con logística para mañana a las 9am)..."></textarea>
+          <div class="comentario-acciones">
+            <button type="button" class="btn btn-primary btn-guardar-comentario"
+              [disabled]="!nuevoComentarioTexto().trim() || guardandoComentario()"
+              (click)="guardarComentarioSeguimiento()">
+              @if (guardandoComentario()) {
+              <i class="fas fa-spinner fa-spin"></i> Guardando...
+              } @else {
+              <i class="fas fa-paper-plane"></i> Guardar Observación
+              }
+            </button>
+          </div>
+        </div>
+
+        <!-- Bitácora de Comentarios Anteriores -->
+        <div class="seguimiento-historial">
+          <h4 class="historial-titulo">
+            <i class="fas fa-history"></i> Bitácora de Observaciones e Intentos de Recuperación ({{ comentariosSeguimiento().length }})
+          </h4>
+
+          @if (cargandoComentarios()) {
+          <div class="comentarios-cargando">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Cargando bitácora...</span>
+          </div>
+          } @else if (comentariosSeguimiento().length === 0) {
+          <div class="comentarios-vacio">
+            <i class="far fa-comment-dots"></i>
+            <p>No se han registrado observaciones aún para este equipo.</p>
+          </div>
+          } @else {
+          <div class="comentarios-timeline">
+            @for (com of comentariosSeguimiento(); track com.id) {
+            <div class="comentario-card">
+              <div class="comentario-header">
+                <div class="comentario-autor">
+                  <i class="fas fa-user-circle"></i>
+                  <strong>{{ com.usuario_nombre || 'Distribución' }}</strong>
+                </div>
+                <span class="comentario-fecha">
+                  <i class="far fa-clock"></i> {{ com.fecha_registro | date:'dd/MM/yyyy HH:mm' }}
+                </span>
+              </div>
+              <div class="comentario-cuerpo">
+                {{ com.comentario }}
+              </div>
+            </div>
+            }
+          </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+  }
 </div>
-}

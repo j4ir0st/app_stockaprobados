@@ -123,9 +123,15 @@ Este documento describe la especificación técnica, endpoints masivos, auto-cre
 
 ---
 
-### C. Marcar Check de Retorno al Almacén (`EV_Seguimiento`)
+### C. Actualizar Estado de Proceso de Recojo (`EV_Seguimiento`)
 > [!IMPORTANT]
-> Si el equipo no tenía seguimiento previo, el backend lo crea automáticamente con `volvio_almacen: true` y la fecha actual. Si ya existía, lo actualiza.
+> El campo `volvio_almacen` maneja **4 etapas/estados de recojo** (`TextChoices`):
+> 1. `PR`: **Por recoger** (Estado inicial / Pendiente)
+> 2. `EP`: **En proceso de recojo** (En ruta o en coordinación)
+> 3. `RC`: **Recogido** (Recogido de clínica / paciente)
+> 4. `DV`: **Devuelto al almacén** (Ingreso físico al almacén)
+>
+> Si el equipo no tenía seguimiento previo, el backend lo crea automáticamente con el estado enviado.
 
 - **Método:** `POST`
 - **Endpoint:** `https://appsurgicorperu.com/EV_Seguimiento/`
@@ -133,17 +139,10 @@ Este documento describe la especificación técnica, endpoints masivos, auto-cre
   ```json
   {
     "serie": "X11065",
-    "volvio_almacen": true
+    "volvio_almacen": "EP"
   }
   ```
-- **Opcional si se quiere desmarcar el retorno:**
-  ```json
-  {
-    "serie": "X11065",
-    "volvio_almacen": false
-  }
-  ```
-- **Respuesta JSON (`201 Created`):**
+- **Respuesta JSON (`201 Created` / `200 OK`):**
   ```json
   {
     "id": 1,
@@ -151,12 +150,14 @@ Este documento describe la especificación técnica, endpoints masivos, auto-cre
     "tipo_producto": "EQ",
     "prod": "A4-S0002",
     "empresa": "01",
-    "volvio_almacen": true,
-    "fecha_retorno": "2026-09-22T20:25:00Z",
+    "volvio_almacen": {
+      "EP": "En proceso de recojo"
+    },
+    "fecha_retorno": "2026-09-24T20:25:00Z",
     "usuario_registro": 2,
     "usuario_registro_nombre": "Jairo Castillo Alcas",
     "created_at": "2026-09-22T20:22:19Z",
-    "updated_at": "2026-09-22T20:25:00Z",
+    "updated_at": "2026-09-24T20:25:00Z",
     "total_comentarios": 1,
     "comentarios": [ ... ]
   }
@@ -195,10 +196,12 @@ export interface ComentarioVAC {
   fecha_registro?: string;
 }
 
+export type EstadoRecojoTipo = 'PR' | 'EP' | 'RC' | 'DV';
+
 export interface SeguimientoVAC {
   id?: number;
   serie: string;
-  volvio_almacen: boolean;
+  volvio_almacen: EstadoRecojoTipo | { [key: string]: string } | boolean;
   fecha_retorno?: string;
   usuario_registro_nombre?: string;
   total_comentarios?: number;
@@ -270,9 +273,9 @@ export class EquiposVacService {
   }
 
   /**
-   * Actualiza el check de si volvió al almacén
+   * Actualiza el estado de recojo ('PR', 'EP', 'RC', 'DV')
    */
-  actualizarEstadoRetorno(serie: string, volvioAlmacen: boolean): Observable<SeguimientoVAC> {
+  actualizarEstadoRetorno(serie: string, volvioAlmacen: EstadoRecojoTipo | string): Observable<SeguimientoVAC> {
     return this.http.post<SeguimientoVAC>(`${this.baseUrl}/EV_Seguimiento/`, {
       serie,
       volvio_almacen: volvioAlmacen

@@ -12,6 +12,28 @@ import { RefreshService } from '../../services/refresh.service';
 import { AuthService } from '../../services/auth.service';
 import { Subscription } from 'rxjs';
 
+export enum EstadoRecojoEnum {
+  POR_RECOGER = 'PR',
+  EN_PROCESO = 'EP',
+  RECOGIDO = 'RC',
+  DEVUELTO = 'DV'
+}
+
+export interface EstadoRecojoOpcion {
+  clave: string;
+  label: string;
+  descripcion: string;
+  colorClass: string;
+  icon: string;
+}
+
+export const ESTADOS_RECOJO_LIST: EstadoRecojoOpcion[] = [
+  { clave: EstadoRecojoEnum.POR_RECOGER, label: 'Por recoger', descripcion: 'Pendiente de inicio de recojo', colorClass: 'estado-pr', icon: 'fa-clock' },
+  { clave: EstadoRecojoEnum.EN_PROCESO, label: 'En proceso de recojo', descripcion: 'En ruta / coordinación de recojo', colorClass: 'estado-ep', icon: 'fa-truck-fast' },
+  { clave: EstadoRecojoEnum.RECOGIDO, label: 'Recogido', descripcion: 'Recogido de clínica / paciente', colorClass: 'estado-rc', icon: 'fa-clipboard-check' },
+  { clave: EstadoRecojoEnum.DEVUELTO, label: 'Devuelto al almacén', descripcion: 'Ingresado físicamente al almacén', colorClass: 'estado-dv', icon: 'fa-warehouse' }
+];
+
 @Component({
   selector: 'app-inventory',
   standalone: true,
@@ -240,6 +262,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   filtroAlmacenaje = signal('');          // Filtro de texto por tipo de almacenaje
   filtroSerie = signal('');               // Filtro de texto por número de serie
   filtroDeposito = signal('');            // Filtro de texto por nombre de depósito
+  filtroSeguimiento = signal('');         // Filtro de texto por estado de seguimiento (solo Equipos VAC)
   filtroRepresentante = signal('');       // Filtro de texto por representante
   filtroDisponibilidad = signal('');      // Filtro de texto por disponibilidad (sólo para Equipos VAC)
   filtroPaciente = signal('');            // Filtro de texto por paciente (sólo para Equipos VAC en vista detalle general)
@@ -289,6 +312,34 @@ export class InventoryComponent implements OnInit, OnDestroy {
     if (filtroPorDeposito) {
       items = items.filter(reg => (reg.nombre_deposito || '').toLowerCase().includes(filtroPorDeposito));
     }
+
+    // Filtrar por estado de seguimiento en memoria (búsqueda inteligente por clave PR/EP/RC/DV y texto)
+    const filtroPorSeg = this.filtroSeguimiento().trim().toLowerCase();
+    if (filtroPorSeg) {
+      items = items.filter(reg => {
+        const serie = (reg.numero_serie || reg.serie || reg.activo || '').trim();
+        const seg = this.obtenerSeguimiento(serie);
+        const clave = this.obtenerClaveEstadoRecojo(seg).toLowerCase();
+        const texto = this.obtenerTextoEstadoRecojo(seg).toLowerCase();
+
+        // Mapeo directo por clave exacta o sinónimos
+        if (filtroPorSeg === 'pr' || filtroPorSeg === 'por recoger' || filtroPorSeg === 'pendiente' || filtroPorSeg === 'recoger') {
+          return clave === 'pr';
+        }
+        if (filtroPorSeg === 'ep' || filtroPorSeg === 'en proceso' || filtroPorSeg === 'proceso' || filtroPorSeg === 'en proceso de recojo') {
+          return clave === 'ep';
+        }
+        if (filtroPorSeg === 'rc' || filtroPorSeg === 'recogido') {
+          return clave === 'rc';
+        }
+        if (filtroPorSeg === 'dv' || filtroPorSeg === 'devuelto' || filtroPorSeg === 'devuelto al almacén' || filtroPorSeg === 'almacen' || filtroPorSeg === 'almacén') {
+          return clave === 'dv';
+        }
+
+        return clave.includes(filtroPorSeg) || texto.includes(filtroPorSeg);
+      });
+    }
+
     // Filtrar por representante en memoria (búsqueda parcial sin distinción de mayúsculas)
     const filtroPorRepresentante = this.filtroRepresentante().trim().toLowerCase();
     if (filtroPorRepresentante) {
@@ -621,8 +672,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
           const deposito = (reg.deposito || '').trim();
           const sector = (reg.sector || '').trim();
 
-          // 1. Stock para Cx: (deposito=SG-APR || deposito=RRM-APR) && sector<>AN-ING && sector<>R82.A
-          if ((deposito === 'SG-APR' || deposito === 'RRM-APR') && sector !== 'AN-ING' && sector !== 'PRI-R82.A') {
+          // 1. Stock para Cx: (deposito=SG-APR || deposito=RRM-APR) && sector<>AN-ING && sector no inicia con PRI-
+          if ((deposito === 'SG-APR' || deposito === 'RRM-APR') && sector !== 'AN-ING' && !sector.startsWith('PRI-')) {
             itemObjeto.stock_cx += cantidad;
           }
 
@@ -636,8 +687,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
             itemObjeto.ingenieria += cantidad;
           }
 
-          // 4. Nueva Importación: deposito=RRM-APR && sector=R82.A
-          if (deposito === 'RRM-APR' && sector === 'PRI-R82.A') {
+          // 4. Nueva Importación: deposito=RRM-APR && sector inicia con PRI-
+          if (deposito === 'RRM-APR' && sector.startsWith('PRI-')) {
             itemObjeto.nueva_importacion += cantidad;
           }
 
@@ -1445,7 +1496,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
         } else if (dep.endsWith('-APR')) {
           if (sec.endsWith('-ING') || sec === 'AN-ING') {
             tipoAlmacenaje = 'INGENIERIA';
-          } else if (sec === 'R82.A') {
+          } else if (sec.startsWith('PRI-')) {
             tipoAlmacenaje = 'IMPORTACION EN PROCESO DE APROBACION';
           } else {
             tipoAlmacenaje = 'STOCK DISPONIBLE';
@@ -1590,7 +1641,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
         } else if (dep.endsWith('-APR')) {
           if (sec.endsWith('-ING') || sec === 'AN-ING') {
             tipoAlmacenaje = 'INGENIERIA';
-          } else if (sec === 'R82.A') {
+          } else if (sec.startsWith('PRI-')) {
             tipoAlmacenaje = 'IMPORTACION EN PROCESO DE APROBACION';
           } else {
             tipoAlmacenaje = 'STOCK DISPONIBLE';
@@ -1724,29 +1775,103 @@ export class InventoryComponent implements OnInit, OnDestroy {
     return this.seguimientosMap().get(s) || null;
   }
 
+  estadosRecojoList = ESTADOS_RECOJO_LIST;
+
   /**
-   * Alterna el estado de retorno de un equipo VAC (recogido / por recoger).
+   * Extrae la clave del estado de recojo ('PR', 'EP', 'RC', 'DV') de un objeto, diccionario o string.
+   */
+  obtenerClaveEstadoRecojo(segOrVolvio: any): string {
+    if (!segOrVolvio) return EstadoRecojoEnum.POR_RECOGER;
+    const val = segOrVolvio.volvio_almacen !== undefined ? segOrVolvio.volvio_almacen : segOrVolvio;
+    if (typeof val === 'string') {
+      const v = val.trim().toUpperCase();
+      if (v === 'PR' || v === 'EP' || v === 'RC' || v === 'DV') return v;
+      if (v.includes('PROCESO')) return EstadoRecojoEnum.EN_PROCESO;
+      if (v.includes('DEVUELTO') || v.includes('ALMACEN') || v.includes('ALMACÉN')) return EstadoRecojoEnum.DEVUELTO;
+      if (v.includes('RECOGIDO')) return EstadoRecojoEnum.RECOGIDO;
+      if (v.includes('RECOGER') || v.includes('PENDIENTE')) return EstadoRecojoEnum.POR_RECOGER;
+      return EstadoRecojoEnum.POR_RECOGER;
+    }
+    if (typeof val === 'object' && val !== null) {
+      const keys = Object.keys(val);
+      if (keys.length > 0) {
+        const k = keys[0].trim().toUpperCase();
+        if (k === 'PR' || k === 'EP' || k === 'RC' || k === 'DV') return k;
+      }
+    }
+    if (typeof val === 'boolean') {
+      return val ? EstadoRecojoEnum.DEVUELTO : EstadoRecojoEnum.POR_RECOGER;
+    }
+    return EstadoRecojoEnum.POR_RECOGER;
+  }
+
+  /**
+   * Retorna el label descriptivo del estado de recojo actual.
+   */
+  obtenerTextoEstadoRecojo(segOrVolvio: any): string {
+    const clave = this.obtenerClaveEstadoRecojo(segOrVolvio);
+    const item = this.estadosRecojoList.find(e => e.clave === clave);
+    return item ? item.label : 'Por recoger';
+  }
+
+  /**
+   * Retorna la clase CSS de color para el estado de recojo.
+   */
+  obtenerClaseEstadoRecojo(segOrVolvio: any): string {
+    const clave = this.obtenerClaveEstadoRecojo(segOrVolvio);
+    const item = this.estadosRecojoList.find(e => e.clave === clave);
+    return item ? item.colorClass : 'estado-pr';
+  }
+
+  /**
+   * Retorna el icono FontAwesome para el estado de recojo.
+   */
+  obtenerIconoEstadoRecojo(segOrVolvio: any): string {
+    const clave = this.obtenerClaveEstadoRecojo(segOrVolvio);
+    const item = this.estadosRecojoList.find(e => e.clave === clave);
+    return item ? item.icon : 'fa-clock';
+  }
+
+  /**
+   * Manejador del evento change en el select de estado de recojo de la tabla detalle.
+   */
+  onCambiarEstadoSelect(item: any, event: Event): void {
+    event.stopPropagation();
+    const selectEl = event.target as HTMLSelectElement;
+    if (selectEl) {
+      this.cambiarEstadoRecojo(item, selectEl.value, event);
+    }
+  }
+
+  /**
+   * Cambia el estado de recojo de un equipo VAC ('PR', 'EP', 'RC', 'DV').
    * Solo disponible para el área de Distribución.
    * @param item Objeto de equipo en la tabla detalle.
-   * @param event Evento de clic del navegador.
+   * @param nuevoEstado Clave del nuevo estado.
+   * @param event Evento de clic/cambio del navegador.
    */
-  async toggleVolvioAlmacen(item: any, event?: Event): Promise<void> {
+  async cambiarEstadoRecojo(item: any, nuevoEstado: string, event?: Event): Promise<void> {
     if (event) event.stopPropagation();
     if (!this.authService.esUsuarioDistribucion()) return;
 
-    const serie = (item.numero_serie || item.serie || '').trim();
+    const serie = (item?.numero_serie || item?.serie || '').trim();
     if (!serie || serie === '—') return;
 
     const serieUpper = serie.toUpperCase();
     const actual = this.seguimientosMap().get(serieUpper);
-    const nuevoVolvio = actual ? !actual.volvio_almacen : true;
-    const fechaRetorno = nuevoVolvio ? new Date().toISOString() : null;
+    const estadoActual = this.obtenerClaveEstadoRecojo(actual);
+
+    if (estadoActual === nuevoEstado) return;
+
+    const fechaRetorno = (nuevoEstado === EstadoRecojoEnum.DEVUELTO || nuevoEstado === EstadoRecojoEnum.RECOGIDO)
+      ? new Date().toISOString()
+      : (actual?.fecha_retorno || null);
 
     // Actualización optimista inmediata en memoria
     const nuevoSeg = {
       ...(actual || {}),
       serie: serie,
-      volvio_almacen: nuevoVolvio,
+      volvio_almacen: nuevoEstado,
       fecha_retorno: fechaRetorno,
       total_comentarios: actual?.total_comentarios || actual?.comentarios?.length || 0
     };
@@ -1754,14 +1879,22 @@ export class InventoryComponent implements OnInit, OnDestroy {
     mapaActualizado.set(serieUpper, nuevoSeg);
     this.seguimientosMap.set(mapaActualizado);
 
+    if (this.equipoSeleccionadoSeguimiento() && (this.equipoSeleccionadoSeguimiento().numero_serie || this.equipoSeleccionadoSeguimiento().serie || '').trim().toUpperCase() === serieUpper) {
+      this.seguimientoActivo.set(nuevoSeg);
+    }
+
     try {
-      const res = await firstValueFrom(this.apiService.actualizarEstadoRetornoVAC(serie, nuevoVolvio));
+      const res = await firstValueFrom(this.apiService.actualizarEstadoRetornoVAC(serie, nuevoEstado));
       if (res) {
-        mapaActualizado.set(serieUpper, { ...nuevoSeg, ...res });
+        const segActualizado = { ...nuevoSeg, ...res };
+        mapaActualizado.set(serieUpper, segActualizado);
         this.seguimientosMap.set(new Map(mapaActualizado));
+        if (this.seguimientoActivo() && (this.seguimientoActivo().serie || '').trim().toUpperCase() === serieUpper) {
+          this.seguimientoActivo.set(segActualizado);
+        }
       }
     } catch (err) {
-      console.error('Error al actualizar seguimiento VAC:', err);
+      console.error('Error al actualizar estado de recojo VAC:', err);
       // Revertir estado si falla la petición
       if (actual) {
         mapaActualizado.set(serieUpper, actual);
@@ -1769,6 +1902,10 @@ export class InventoryComponent implements OnInit, OnDestroy {
         mapaActualizado.delete(serieUpper);
       }
       this.seguimientosMap.set(new Map(mapaActualizado));
+      if (this.seguimientoActivo() && (this.seguimientoActivo().serie || '').trim().toUpperCase() === serieUpper) {
+        this.seguimientoActivo.set(actual || null);
+      }
+      alert('No se pudo actualizar el estado de recojo. Intente nuevamente.');
     }
   }
 
@@ -1856,7 +1993,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       // Actualizar contador en seguimiento
       const segActual = this.seguimientoActivo() || {
         serie: serie,
-        volvio_almacen: false,
+        volvio_almacen: EstadoRecojoEnum.POR_RECOGER,
         total_comentarios: 0,
         comentarios: []
       };
@@ -2066,8 +2203,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
     const dep = (deposito || '').trim();
     const sec = (sector || '').trim();
 
-    if ((dep === 'SG-APR' || dep === 'RRM-APR') && sec !== 'AN-ING' && sec !== 'PRI-R82.A') {
-      return 'STOCK PARA CX';
+    if ((dep === 'SG-APR' || dep === 'RRM-APR') && sec !== 'AN-ING' && !sec.startsWith('PRI-')) {
+      return 'STOCK DISPONIBLE';
     }
     if (dep === 'SG-DEV' || dep === 'RRM-DEV') {
       return 'PEND. REVISIÓN';
@@ -2075,7 +2212,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
     if ((dep === 'SG-APR' || dep === 'RRM-APR') && sec === 'AN-ING') {
       return 'INGENIERÍA - 6TO PISO';
     }
-    if (dep === 'RRM-APR' && sec === 'PRI-R82.A') {
+    if (dep === 'RRM-APR' && sec.startsWith('PRI-')) {
       return 'NUEVA IMPORTACIÓN';
     }
     if (dep.endsWith('-VS') || dep.endsWith('-C')) {
@@ -2091,6 +2228,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   obtenerClaseDisponibilidad(disponibilidad: string): string {
     const disp = (disponibilidad || '').toUpperCase().trim();
     const mapaClases: Record<string, string> = {
+      'STOCK DISPONIBLE': 'disponibilidad-stock',
       'STOCK PARA CX': 'disponibilidad-stock',
       'PEND. REVISIÓN': 'disponibilidad-pendiente',
       'INGENIERÍA - 6TO PISO': 'disponibilidad-ingenieria',
@@ -2224,7 +2362,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
               } else if (dep.endsWith('-APR')) {
                 if (sec.endsWith('-ING') || sec === 'AN-ING') {
                   tipoAlmacenaje = 'INGENIERIA';
-                } else if (sec === 'R82.A') {
+                } else if (sec.startsWith('PRI-')) {
                   tipoAlmacenaje = 'IMPORTACION EN PROCESO DE APROBACION';
                 } else {
                   tipoAlmacenaje = 'STOCK DISPONIBLE';
@@ -2302,7 +2440,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
               } else if (dep.endsWith('-APR')) {
                 if (sec.endsWith('-ING') || sec === 'AN-ING') {
                   tipoAlmacenaje = 'INGENIERIA';
-                } else if (sec === 'R82.A') {
+                } else if (sec.startsWith('PRI-')) {
                   tipoAlmacenaje = 'IMPORTACION EN PROCESO DE APROBACION';
                 } else {
                   tipoAlmacenaje = 'STOCK DISPONIBLE';
@@ -2417,7 +2555,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           const deposito = (reg.deposito || '').trim();
           const sector = (reg.sector || '').trim();
 
-          if ((deposito === 'SG-APR' || deposito === 'RRM-APR') && sector !== 'AN-ING' && sector !== 'PRI-R82.A') {
+          if ((deposito === 'SG-APR' || deposito === 'RRM-APR') && sector !== 'AN-ING' && !sector.startsWith('PRI-')) {
             itemObjeto.stock_cx += cantidad;
           }
           if (deposito === 'SG-DEV' || deposito === 'RRM-DEV') {
@@ -2426,7 +2564,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           if ((deposito === 'SG-APR' || deposito === 'RRM-APR') && sector === 'AN-ING') {
             itemObjeto.ingenieria += cantidad;
           }
-          if (deposito === 'RRM-APR' && sector === 'PRI-R82.A') {
+          if (deposito === 'RRM-APR' && sector.startsWith('PRI-')) {
             itemObjeto.nueva_importacion += cantidad;
           }
           if (deposito.endsWith('-VS') || deposito.endsWith('-C')) {

@@ -1,6 +1,6 @@
 .main-header {
     height: 70px;
-    background: color-mix(in srgb, var(--primary-blue), white 90%);
+    background: color-mix(in srgb, var(--secondary-color), white 65%);
     /* Fondo dinámico claro basado en el color primario */
     display: flex;
     align-items: center;
